@@ -5,8 +5,8 @@
 
 
 float myScale = 0.002;
-float radius = 100.0; //(must not be larger than width*0.5)
-int nSteps = 5000; 
+float radius = 200.0; //(must not be larger than width*0.5)
+int nSteps = 1000; 
 float seed1 =random(1000);
 float seed2 =random(1000);
 float seed3 =random(1000);
@@ -21,7 +21,7 @@ void setup() {
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   size(1000, 1000); 
-  columns = 15;
+  columns = 35;
   rows = columns;
   colOffset = width/(columns*2);
   rowOffset = height/(rows*2);
@@ -44,9 +44,11 @@ void draw() {
       // All the calculations which are specific to the individual element
       float gridx = map (col, 0, columns, 0, width) + colOffset;
       float gridy = map (row, 0, rows, 0, height) + rowOffset;
-      float noise1 = noise(myScale*(gridx + px+seed1), myScale*(gridy + py+seed1), myScale*(pz+seed1));
-      float noise2 = noise(myScale*(gridx + px+seed2), myScale*(gridy + py+seed2), myScale*(pz+seed2));
-      float noise3 = noise(myScale*(gridx + px+seed3), myScale*(gridy + py+seed3), myScale*(pz+seed3));
+      float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);
+      myScale = map(distToCenter, 0, width*0.7, 0.001, 0.01); 
+      float noise1 = noise(myScale*(gridx + px+seed1), myScale*(gridy + py+seed1), myScale*(px+seed1));
+      float noise2 = noise(myScale*(gridx + px+seed2), myScale*(gridy + py+seed2), myScale*(px+seed2));
+      float noise3 = noise(myScale*(gridx + px+seed3), myScale*(gridy + py+seed3), myScale*(px+seed3));
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       //float ry = map(noise3,0,1,0.5,1.0);
