@@ -1,14 +1,13 @@
-// Building on a short demo by Golan Levin (@golan)
-// which was inspired by, and created in support of:
+// Sketch to explore applications of cyclic paths through 3D noise space
+// Building from a short demo by Golan Levin (@golan) which was in turn inspired by, and created in support of:
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
-
-float myScale = 0.002;
-float radius = 200.0; //(must not be larger than width*0.5)
-int nSteps = 1000; 
-float seed1 =random(1000);
-float seed2 =random(1000);
+float myScale = 0.002;     // If a static value is used (maybe a dynamic one is preferable?)
+float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
+int loopFrames = 1000;         // Total number of frames in the loop
+float seed1 =random(1000); // To give random variation between the 3D noisespaces
+float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
 
 int columns, rows;
@@ -26,7 +25,7 @@ void setup() {
   float w = width;
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
-  columns = int(random(49, 49));
+  columns = int(random(19, 49));
   rows = int(hwRatio * columns);
   //columns = 49;
   //rows = columns;
@@ -35,9 +34,14 @@ void setup() {
 }
 
 void draw() {
-  background(240, 255, 255);
-  int currStep = frameCount%nSteps;
-  float t = map(currStep, 0, nSteps, 0, TWO_PI);
+  int currStep = frameCount%loopFrames;
+  float t = map(currStep, 0, loopFrames, 0, TWO_PI);
+  float sineWave = sin(t);
+  float cosWave = cos(t);
+  float bkg_Hue = 240;
+  float bkg_Sat = 255;
+  float bkg_Bri = map(sineWave, -1, 1, 100, 255);
+  background(bkg_Hue, bkg_Sat, bkg_Bri);
    
   //float px = width*0.5 + radius * cos(t); 
   //float py = height*0.5 + radius * sin(t);
@@ -53,8 +57,8 @@ void draw() {
       float gridy = map (row, 0, rows, 0, height) + rowOffset;
       float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);
       radius = map(distToCenter, 0, width*0.7, 50, 200);
-      float px = width*0.5 + radius * cos(t); 
-      float py = height*0.5 + radius * sin(t);
+      float px = width*0.5 + radius * cosWave; 
+      float py = height*0.5 + radius * sineWave;
       //myScale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); 
       float noise1 = noise(myScale*(gridx + px+seed1), myScale*(gridy + py+seed1), myScale*(px+seed1));
       float noise2 = noise(myScale*(gridx + px+seed2), myScale*(gridy + py+seed2), myScale*(px+seed2));
@@ -76,7 +80,7 @@ void draw() {
   // Save frames for the purpose of 
   // making an animated GIF loop, 
   // e.g. with http://gifmaker.me/
-  if (frameCount < nSteps) {
-    saveFrame( "save/"+ nf(currStep, 3)+ ".jpg");
+  if (frameCount < loopFrames) {
+    //saveFrame( "save/"+ nf(currStep, 3)+ ".jpg");
   }
 }
