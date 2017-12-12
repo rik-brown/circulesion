@@ -3,20 +3,25 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
-float myScale = 0.002;     // If a static value is used (maybe a dynamic one is preferable?)
+import com.hamoid.*;
+
+VideoExport videoExport;
+
+float myScale = 0.005;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 1000;         // Total number of frames in the loop
+int loopFrames = 600;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
 
 int columns, rows;
 float colOffset, rowOffset, hwRatio;
-float ellipseSize = 1.0;
+float ellipseSize = 2.0;
 
 void setup() {
-  fullScreen();
+  //fullScreen();
   //size(2000, 2000);
+  size(1000, 1000);
   colorMode(HSB, 360, 255, 255, 255);
   noStroke();
   ellipseMode(RADIUS);
@@ -25,16 +30,22 @@ void setup() {
   float w = width;
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
-  columns = int(random(19, 49));
+  columns = int(random(3, 33));
   rows = int(hwRatio * columns);
   //columns = 49;
   //rows = columns;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
+  videoExport = new VideoExport(this, "../videoExport/circulesion.mp4"); //WARNING! The destination folder must exist already!
+  videoExport.setQuality(85, 128);
+  videoExport.setFrameRate(60);
+  videoExport.setDebugging(false);
+  videoExport.startMovie();
 }
 
 void draw() {
   int currStep = frameCount%loopFrames;
+  println("Frame: " + currStep);
   float t = map(currStep, 0, loopFrames, 0, TWO_PI);
   float sineWave = sin(t);
   float cosWave = cos(t);
@@ -65,22 +76,47 @@ void draw() {
       float noise3 = noise(myScale*(gridx + px+seed3), myScale*(gridy + py+seed3), myScale*(px+seed3));
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
-      float ry = map(noise3,0,1,0.6,1.0);
+      float ry = map(noise3,0,1,0.5,1.0);
+      float fill_Hue = map(noise1, 0, 1, 0,30);
+      float fill_Sat = map(noise3, 0, 1, 223,255);
+      float fill_Bri = map(noise2, 0, 1, 64,255);
+      
+      //draw the thing
       pushMatrix();
-      translate(gridx, gridy);
-      rotate(map(noise1,0,1,0,TWO_PI));
-      fill(map(noise1, 0, 1, 0,30), map(noise3, 0, 1, 223,255), map(noise2, 0, 1, 64,255));
-      //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5));
-      ellipse(0,0,rx,rx*ry); // Requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      //rect(0,0,rx,rx*ry); // Requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      //ellipse(0,0,rx,ry); // Requires that ry is a value in a similar range to rx
+      translate(gridx, gridy); // Go to the grid location
+      rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
+      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      
+      // These shapes require that ry is a value in a similar range to rx
+      //ellipse(0,0,rx,ry); // Draw an ellipse
+      //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5)); // Draw a triangle
+      //rect(0,0,rx,ry); // Draw a rectangle
+      
+      
+      // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
+      //ellipse(0,0,rx,rx*ry); // Draw an ellipse
+      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      //rect(0,0,rx,rx*ry); // Draw a rectangle
+      
       popMatrix();
     }
+  }
+  videoExport.saveFrame();
+  if (currStep==0) {
+    videoExport.endMovie();
+    exit();
   }
   // Save frames for the purpose of 
   // making an animated GIF loop, 
   // e.g. with http://gifmaker.me/
   if (frameCount < loopFrames) {
     //saveFrame( "save/"+ nf(currStep, 3)+ ".jpg");
+  }
+}
+
+void keyPressed() {
+  if (key == 'q') {
+    videoExport.endMovie();
+    exit();
   }
 }
