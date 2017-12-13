@@ -18,6 +18,23 @@ int columns, rows;
 float colOffset, rowOffset, hwRatio;
 float ellipseSize = 2.0;
 
+int batch = 1;
+
+String applicationName = "circulesion";
+
+String logFileName;   // Name & location of logfile (.log)
+String pngFile;       // Name & location of saved output (.png final image)
+String pdfFile;       // Name & location of saved output (.pdf file)
+String framedumpPath; // Name & location of saved output (individual frames) NOT IN USE
+String mp4File;       // Name & location of video output (.mp4 file)
+
+boolean makePDF = false;
+boolean savePNG = true;
+boolean makeMPEG = true;
+boolean runOnce = false;
+
+PrintWriter logFile;    // Object for writing to the settings logfile
+
 void setup() {
   //fullScreen();
   //size(2000, 2000);
@@ -36,11 +53,15 @@ void setup() {
   //rows = columns;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
-  videoExport = new VideoExport(this, "../videoExport/circulesion.mp4"); //WARNING! The destination folder must exist already!
-  videoExport.setQuality(85, 128);
-  videoExport.setFrameRate(60);
-  videoExport.setDebugging(false);
-  videoExport.startMovie();
+  getReady();
+  if (makeMPEG) {
+    videoExport = new VideoExport(this, "../videoExport/circulesion.mp4"); //WARNING! The destination folder must exist already!
+    //videoExport = new VideoExport(this, mp4File); //WARNING! The destination folder must exist already!
+    videoExport.setQuality(85, 128);
+    videoExport.setFrameRate(60);
+    videoExport.setDebugging(false);
+    videoExport.startMovie();
+  }
 }
 
 void draw() {
@@ -101,10 +122,11 @@ void draw() {
       popMatrix();
     }
   }
-  videoExport.saveFrame();
+  if (makeMPEG) {videoExport.saveFrame();}
   if (currStep==0) {
-    videoExport.endMovie();
-    exit();
+    //videoExport.endMovie();
+    //exit();
+    shutdown();
   }
   // Save frames for the purpose of 
   // making an animated GIF loop, 
@@ -119,4 +141,74 @@ void keyPressed() {
     videoExport.endMovie();
     exit();
   }
+}
+
+// prepares pathnames for various file outputs
+void getReady() {
+  String batchName = String.valueOf(nf(batch,3));
+  String timestamp = timeStamp();
+  String pathName = "../../output/" + applicationName + "/" + batchName + "/" + String.valueOf(width) + "x" + String.valueOf(height) + "/"; //local
+  pngFile = pathName + "png/" + applicationName + "-" + batchName + "-" + timestamp + ".png";
+  //screendumpPath = "../output.png"; // For use when running from local bot
+  pdfFile = pathName + "pdf/" + applicationName + "-" + batchName + "-" + timestamp + ".pdf";
+  mp4File = pathName + applicationName + "/" + batchName + ".mp4";
+  logFileName = pathName + "settings/" + applicationName + "-" + batchName + "-" + timestamp + ".log";
+  logFile = createWriter(logFileName); //Open a new settings logfile
+  logStart();
+  if (makePDF) {beginRecord(PDF, pdfFile);}
+}
+
+void logStart() {
+  logFile.println(pngFile);
+  logFile.println("loopFrames = " + loopFrames);
+  logFile.println("columns = " + columns);
+  logFile.println("rows = " + rows);
+  logFile.println("ellipseSize = " + ellipseSize);
+  logFile.println("seed1 = " + seed1);
+  logFile.println("seed2 = " + seed2);
+  logFile.println("seed3 = " + seed3);
+  logFile.println("myScale = " + myScale);
+}
+
+void logEnd() {
+  logFile.flush();
+  logFile.close(); //Flush and close the settings file
+}
+
+
+// saves an image of the final frame, closes any pdf & mpeg files and exits
+void shutdown() {
+  // Close the logfile
+  println("Saving .log file: " + logFileName);
+  logEnd();
+  
+  // If I'm in PNG-mode, export a .png of how the image looked when it was terminated
+  if (savePNG) {
+    println("Saving .png file: " + pngFile);
+    saveFrame(pngFile);
+  }
+  
+  // If I'm in PDF-mode, complete & close the file
+  if (makePDF) {
+    println("Saving .pdf file: " + pdfFile);
+    endRecord();
+  }
+  
+  // If I'm in MPEG mode, complete & close the file
+  if (makeMPEG) {
+    println("Saving .mp4 file: " + mp4File);
+    videoExport.endMovie();}
+  exit();
+}
+
+//returns a string with the date & time in the format 'yyyymmdd-hhmmss'
+String timeStamp() {
+  String s = String.valueOf(nf(second(),2));
+  String m = String.valueOf(nf(minute(),2));
+  String h = String.valueOf(nf(hour(),2));
+  String d = String.valueOf(nf(day(),2));
+  String mo = String.valueOf(nf(month(),2));
+  String y = String.valueOf(nf(year(),4));
+  String timestamp = y + mo + d + "-" + h + m + s;
+  return timestamp;
 }
