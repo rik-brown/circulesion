@@ -9,7 +9,7 @@ VideoExport videoExport;
 
 float myScale = 0.001;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 1800;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+int loopFrames = 400;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
@@ -30,13 +30,14 @@ String mp4File;       // Name & location of video output (.mp4 file)
 
 boolean makePDF = false;
 boolean savePNG = false;
-boolean makeMPEG = false;
+boolean makeMPEG = true;
 boolean runOnce = false;
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
-  fullScreen();
+  //fullScreen();
+  size(800, 800);
   //size(2000, 2000);
   //size(1000, 1000);
   colorMode(HSB, 360, 255, 255, 255);
@@ -47,7 +48,7 @@ void setup() {
   float w = width;
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
-  columns = int(random(13, 53));
+  columns = int(random(3, 7));
   rows = int(hwRatio * columns);
   //columns = 49;
   //rows = columns;
@@ -55,8 +56,8 @@ void setup() {
   rowOffset = h/(rows*2);
   getReady();
   if (makeMPEG) {
-    videoExport = new VideoExport(this, "../videoExport/circulesion.mp4"); //WARNING! The destination folder must exist already!
-    //videoExport = new VideoExport(this, mp4File); //WARNING! The destination folder must exist already!
+    runOnce = true;
+    videoExport = new VideoExport(this, mp4File);
     videoExport.setQuality(85, 128);
     videoExport.setFrameRate(60);
     videoExport.setDebugging(false);
@@ -102,7 +103,7 @@ void draw() {
       float ry = map(noise3,0,1,0.5,1.0);
       float fill_Hue = map(noise1, 0, 1, 0,20);
       float fill_Sat = map(noise3, 0, 1, 223,255);
-      float fill_Bri = map(noise2, 0, 1, 64,255);
+      float fill_Bri = map(noise2, 0, 1, 0,255);
       
       //draw the thing
       pushMatrix();
@@ -154,7 +155,7 @@ void getReady() {
   pngFile = pathName + "png/" + applicationName + "-" + batchName + "-" + timestamp + ".png";
   //screendumpPath = "../output.png"; // For use when running from local bot
   pdfFile = pathName + "pdf/" + applicationName + "-" + batchName + "-" + timestamp + ".pdf";
-  mp4File = pathName + applicationName + "/" + batchName + ".mp4";
+  mp4File = pathName + applicationName + "-" + batchName + "-" + timestamp + ".mp4";
   logFileName = pathName + "settings/" + applicationName + "-" + batchName + "-" + timestamp + ".log";
   logFile = createWriter(logFileName); //Open a new settings logfile
   logStart();
