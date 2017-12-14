@@ -9,7 +9,7 @@ VideoExport videoExport;
 
 float myScale = 0.001;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 1200;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+int loopFrames = 1800;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
@@ -74,7 +74,8 @@ void draw() {
   float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
-  background(bkg_Hue, bkg_Sat, bkg_Bri);
+  //background(bkg_Hue, bkg_Sat, bkg_Bri);
+  background(bkg_Hue, 0, bkg_Bri);
    
   //float px = width*0.5 + radius * cos(t); 
   //float py = height*0.5 + radius * sin(t);
@@ -107,7 +108,8 @@ void draw() {
       pushMatrix();
       translate(gridx, gridy); // Go to the grid location
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
-      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
       
       // These shapes require that ry is a value in a similar range to rx
       //ellipse(0,0,rx,ry); // Draw an ellipse
@@ -116,8 +118,8 @@ void draw() {
       
       
       // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      //ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      ellipse(0,0,rx,rx*ry); // Draw an ellipse
+      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
       //rect(0,0,rx,rx*ry); // Draw a rectangle
       
       popMatrix();
@@ -139,7 +141,7 @@ void draw() {
 
 void keyPressed() {
   if (key == 'q') {
-    videoExport.endMovie();
+    if (makeMPEG) {videoExport.endMovie();}
     exit();
   }
 }
