@@ -3,20 +3,21 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
-import com.hamoid.*;
+import com.hamoid.*;     // For converting frames to a .mp4 video file 
+import processing.pdf.*; // For exporting output as a .pdf file
 
 VideoExport videoExport;
 
-float myScale = 0.001;     // If a static value is used (maybe a dynamic one is preferable?)
+float myScale = 0.0005;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 400;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+int loopFrames = 100;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
 
 int columns, rows;
 float colOffset, rowOffset, hwRatio;
-float ellipseSize = 2.0;
+float ellipseSize = 3.0;
 
 int batch = 1;
 
@@ -30,27 +31,28 @@ String mp4File;       // Name & location of video output (.mp4 file)
 
 boolean makePDF = false;
 boolean savePNG = false;
-boolean makeMPEG = true;
+boolean makeMPEG = false;
 boolean runOnce = false;
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-  size(800, 800);
+  //size(10000, 10000);
   //size(2000, 2000);
-  //size(1000, 1000);
+  size(1000, 1000);
   colorMode(HSB, 360, 255, 255, 255);
-  noStroke();
+  //noStroke();
+  stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   float h = height;
   float w = width;
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
-  columns = int(random(3, 7));
+  //columns = int(random(3, 7));
+  columns = 49;
   rows = int(hwRatio * columns);
-  //columns = 49;
   //rows = columns;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
@@ -76,7 +78,8 @@ void draw() {
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
   //background(bkg_Hue, bkg_Sat, bkg_Bri);
-  background(bkg_Hue, 0, bkg_Bri);
+  background(0);
+  //background(bkg_Hue, 0, bkg_Bri);
    
   //float px = width*0.5 + radius * cos(t); 
   //float py = height*0.5 + radius * sin(t);
@@ -110,7 +113,8 @@ void draw() {
       translate(gridx, gridy); // Go to the grid location
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
-      fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
+      //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
+      fill(255);
       
       // These shapes require that ry is a value in a similar range to rx
       //ellipse(0,0,rx,ry); // Draw an ellipse
@@ -119,8 +123,8 @@ void draw() {
       
       
       // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      //ellipse(0,0,rx,rx*ry); // Draw an ellipse
+      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
       //rect(0,0,rx,rx*ry); // Draw a rectangle
       
       popMatrix();
@@ -159,7 +163,10 @@ void getReady() {
   logFileName = pathName + "settings/" + applicationName + "-" + batchName + "-" + timestamp + ".log";
   logFile = createWriter(logFileName); //Open a new settings logfile
   logStart();
-  if (makePDF) {beginRecord(PDF, pdfFile);}
+  if (makePDF) {
+    runOnce = true;
+    beginRecord(PDF, pdfFile);
+  }
 }
 
 void logStart() {
