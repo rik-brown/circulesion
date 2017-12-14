@@ -7,9 +7,9 @@ import com.hamoid.*;
 
 VideoExport videoExport;
 
-float myScale = 0.005;     // If a static value is used (maybe a dynamic one is preferable?)
+float myScale = 0.001;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 600;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+int loopFrames = 1200;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
@@ -29,16 +29,16 @@ String framedumpPath; // Name & location of saved output (individual frames) NOT
 String mp4File;       // Name & location of video output (.mp4 file)
 
 boolean makePDF = false;
-boolean savePNG = true;
-boolean makeMPEG = true;
+boolean savePNG = false;
+boolean makeMPEG = false;
 boolean runOnce = false;
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
-  //fullScreen();
+  fullScreen();
   //size(2000, 2000);
-  size(1000, 1000);
+  //size(1000, 1000);
   colorMode(HSB, 360, 255, 255, 255);
   noStroke();
   ellipseMode(RADIUS);
@@ -47,7 +47,7 @@ void setup() {
   float w = width;
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
-  columns = int(random(3, 33));
+  columns = int(random(13, 53));
   rows = int(hwRatio * columns);
   //columns = 49;
   //rows = columns;
@@ -70,7 +70,8 @@ void draw() {
   float t = map(currStep, 0, loopFrames, 0, TWO_PI);
   float sineWave = sin(t);
   float cosWave = cos(t);
-  float bkg_Hue = 240;
+  //float bkg_Hue = 240;
+  float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
   background(bkg_Hue, bkg_Sat, bkg_Bri);
@@ -88,7 +89,7 @@ void draw() {
       float gridx = map (col, 0, columns, 0, width) + colOffset;
       float gridy = map (row, 0, rows, 0, height) + rowOffset;
       float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);
-      radius = map(distToCenter, 0, width*0.7, 50, 200);
+      radius = map(distToCenter, 0, width*0.7, 50, 100);
       float px = width*0.5 + radius * cosWave; 
       float py = height*0.5 + radius * sineWave;
       //myScale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); 
@@ -98,7 +99,7 @@ void draw() {
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       float ry = map(noise3,0,1,0.5,1.0);
-      float fill_Hue = map(noise1, 0, 1, 0,30);
+      float fill_Hue = map(noise1, 0, 1, 0,20);
       float fill_Sat = map(noise3, 0, 1, 223,255);
       float fill_Bri = map(noise2, 0, 1, 64,255);
       
@@ -123,7 +124,7 @@ void draw() {
     }
   }
   if (makeMPEG) {videoExport.saveFrame();}
-  if (currStep==0) {
+  if (currStep==0 && runOnce) {
     //videoExport.endMovie();
     //exit();
     shutdown();
