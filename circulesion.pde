@@ -8,18 +8,19 @@ import processing.pdf.*; // For exporting output as a .pdf file
 
 VideoExport videoExport;
 
-float myScale = 0.0005;     // If a static value is used (maybe a dynamic one is preferable?)
-float radius = 200.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 100;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+float myScale = 0.0003;     // If a static value is used (maybe a dynamic one is preferable?)
+float radius = 400.0;      // If a static value is used (maybe a dynamic one is preferable?)
+int loopFrames = 2000;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
 
 int columns, rows;
 float colOffset, rowOffset, hwRatio;
-float ellipseSize = 3.0;
+float ellipseMaxSize = 8.0;
+float stripeWidth = 100; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
-int batch = 1;
+int batch = 2;
 
 String applicationName = "circulesion";
 
@@ -30,30 +31,36 @@ String framedumpPath; // Name & location of saved output (individual frames) NOT
 String mp4File;       // Name & location of video output (.mp4 file)
 
 boolean makePDF = false;
-boolean savePNG = false;
+boolean savePNG = true;
 boolean makeMPEG = false;
-boolean runOnce = false;
+boolean runOnce = true;
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-  //size(10000, 10000);
+    //size(10000, 10000);
+  size(4000, 4000);
   //size(2000, 2000);
-  size(1000, 1000);
+  //size(1000, 1000);
+  //size(800, 800);
+  //background(0,255,255);
+  background(0);
   colorMode(HSB, 360, 255, 255, 255);
-  //noStroke();
-  stroke(0);
+  noStroke();
+  //stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   float h = height;
   float w = width;
+  radius = w * 0.4;
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 49;
+  columns = 33;
   rows = int(hwRatio * columns);
   //rows = columns;
+  //rows=5;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
   getReady();
@@ -69,7 +76,14 @@ void setup() {
 
 void draw() {
   int currStep = frameCount%loopFrames;
+  if (currStep==0 && runOnce) {shutdown();}
+  float remainingSteps = loopFrames - currStep;
+  //stripeWidth = (remainingSteps * 0.3) + 10;
+  stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
+  float stripeStep = frameCount%stripeWidth;
+  float stripeFactor = map(currStep, 0, loopFrames, 0.4, 0.6);
   println("Frame: " + currStep);
+  float ellipseSize = map(currStep, 0, loopFrames, ellipseMaxSize, 0);
   float t = map(currStep, 0, loopFrames, 0, TWO_PI);
   float sineWave = sin(t);
   float cosWave = cos(t);
@@ -78,7 +92,7 @@ void draw() {
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
   //background(bkg_Hue, bkg_Sat, bkg_Bri);
-  background(0);
+  //background(0);
   //background(bkg_Hue, 0, bkg_Bri);
    
   //float px = width*0.5 + radius * cos(t); 
@@ -105,8 +119,9 @@ void draw() {
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       float ry = map(noise3,0,1,0.5,1.0);
       float fill_Hue = map(noise1, 0, 1, 0,20);
-      float fill_Sat = map(noise3, 0, 1, 223,255);
-      float fill_Bri = map(noise2, 0, 1, 0,255);
+      float fill_Sat = map(noise3, 0, 1, 20,255);
+      //float fill_Bri = map(noise2, 0, 1, 128,255);
+      float fill_Bri = map(currStep, 0, loopFrames, 0, 360);
       
       //draw the thing
       pushMatrix();
@@ -114,7 +129,11 @@ void draw() {
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
-      fill(255);
+      
+      fill(fill_Bri);
+      //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
+      //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
+      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
       
       // These shapes require that ry is a value in a similar range to rx
       //ellipse(0,0,rx,ry); // Draw an ellipse
@@ -131,11 +150,6 @@ void draw() {
     }
   }
   if (makeMPEG) {videoExport.saveFrame();}
-  if (currStep==0 && runOnce) {
-    //videoExport.endMovie();
-    //exit();
-    shutdown();
-  }
   // Save frames for the purpose of 
   // making an animated GIF loop, 
   // e.g. with http://gifmaker.me/
@@ -174,7 +188,7 @@ void logStart() {
   logFile.println("loopFrames = " + loopFrames);
   logFile.println("columns = " + columns);
   logFile.println("rows = " + rows);
-  logFile.println("ellipseSize = " + ellipseSize);
+  logFile.println("ellipseMaxSize = " + ellipseMaxSize);
   logFile.println("seed1 = " + seed1);
   logFile.println("seed2 = " + seed2);
   logFile.println("seed3 = " + seed3);
@@ -195,8 +209,8 @@ void shutdown() {
   
   // If I'm in PNG-mode, export a .png of how the image looked when it was terminated
   if (savePNG) {
-    println("Saving .png file: " + pngFile);
     saveFrame(pngFile);
+    println("Saving .png file: " + pngFile);
   }
   
   // If I'm in PDF-mode, complete & close the file
