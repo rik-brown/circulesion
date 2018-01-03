@@ -8,9 +8,9 @@ import processing.pdf.*; // For exporting output as a .pdf file
 
 VideoExport videoExport;
 
-float myScale = 0.0003;     // If a static value is used (maybe a dynamic one is preferable?)
+float myScale = 0.0006;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 400.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 2000;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+int loopFrames = 2500;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
@@ -39,8 +39,9 @@ PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-    //size(10000, 10000);
-  size(4000, 4000);
+  size(10000, 10000);
+  //size(6000, 6000);
+  //size(4000, 4000);
   //size(2000, 2000);
   //size(1000, 1000);
   //size(800, 800);
@@ -57,7 +58,7 @@ void setup() {
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 33;
+  columns = 3;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
@@ -118,10 +119,11 @@ void draw() {
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       float ry = map(noise3,0,1,0.5,1.0);
-      float fill_Hue = map(noise1, 0, 1, 0,20);
-      float fill_Sat = map(noise3, 0, 1, 20,255);
+      float fill_Hue = map(noise1, 0, 1, 210,270);
+      //float fill_Sat = map(noise3, 0, 1, 128,255);
+      float fill_Sat = map(currStep, 0, loopFrames, 255, 64);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(currStep, 0, loopFrames, 0, 360);
+      float fill_Bri = map(currStep, 0, loopFrames, 0, 200);
       
       //draw the thing
       pushMatrix();
@@ -129,8 +131,8 @@ void draw() {
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
-      
-      fill(fill_Bri);
+      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      //fill(fill_Bri);
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
@@ -142,8 +144,8 @@ void draw() {
       
       
       // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      //ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      ellipse(0,0,rx,rx*ry); // Draw an ellipse
+      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
       //rect(0,0,rx,rx*ry); // Draw a rectangle
       
       popMatrix();
