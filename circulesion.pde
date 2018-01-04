@@ -6,6 +6,7 @@
 // TO DO: Implement a higher-level loop for saving timelapse-frames to video (2018-01-03)
 // TO DO: Implement a 'stepped' mode which does not render every frame, but jumps in configurable steps (2018-01-04)
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
+// TO DO: Add start-time & end-time to the logfile, to get an idea of expected rendertime for longer videos.
 
 import com.hamoid.*;     // For converting frames to a .mp4 video file 
 import processing.pdf.*; // For exporting output as a .pdf file
@@ -14,8 +15,9 @@ VideoExport videoExport;
 
 // Noise variables: 
 float myScale = 0.0006;     // If a static value is used (maybe a dynamic one is preferable?)
-float radius = 400.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 100;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+float radiusMedian = 400.0;      // If a static value is used (maybe a dynamic one is preferable?)
+float radiusFactor = 0.2;
+int loopFrames = 1000;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
@@ -36,7 +38,7 @@ String framedumpPath; // Name & location of saved output (individual frames) NOT
 String mp4File;       // Name & location of video output (.mp4 file)
 
 // Loop Control variables
-int maxCycles = 10;
+int maxCycles = 600;
 int runCycle = 0;
 
 // Output configuration toggles:
@@ -54,8 +56,8 @@ void setup() {
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
-  //size(1000, 1000);
-  size(800, 800);
+  size(1000, 1000);
+  //size(800, 800);
   //background(0,255,255);
   background(360);
   colorMode(HSB, 360, 255, 255, 255);
@@ -65,7 +67,7 @@ void setup() {
   rectMode(RADIUS);
   float h = height;
   float w = width;
-  radius = w * 0.4;
+  radiusMedian = w * 0.4; // Better to scale radiusMedian to the current canvas size than use a static value
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
@@ -98,9 +100,12 @@ void draw() {
       background(360); //Refresh the background
     }
   }
+  float runCycleAngle = map (runCycle, 0, maxCycles-1, 0, TWO_PI); // Angle will turn through a full circle throughout one runCycle
+  float runCycleSineWave = sin(runCycleAngle); // Range: -1 to +1
+  float radius = radiusMedian * map(runCycleSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor);
   float remainingSteps = loopFrames - currStep;
   //stripeWidth = (remainingSteps * 0.3) + 10;
-  stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
+  //stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
   float stripeStep = frameCount%stripeWidth;
   float stripeFactor = map(currStep, 0, loopFrames, 0.4, 0.6);
   println("Frame: " + currStep + " RunCycle: " + runCycle);
@@ -126,13 +131,22 @@ void draw() {
     for(int row = 0; row<rows; row++) {
       // This is where the code for each element in the grid goes
       // All the calculations which are specific to the individual element
+      
+      // 1) Map the grid coords (row/col) to the x/y coords in the canvas space 
       float gridx = map (col, 0, columns, 0, width) + colOffset;
       float gridy = map (row, 0, rows, 0, height) + rowOffset;
+      
+      // 2) A useful value for modulating other parameters can be calculated: 
       float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);
-      radius = map(distToCenter, 0, width*0.7, 50, 100);
+      
+      // 3) The radius for the x-y(z) noise loop can now be calculated (if not already done so):
+      //radius = radiusMedian * map(distToCenter, 0, width*0.7, 0.5, 1.0); // In this case, radius is influenced by the distToCenter value
+      
+      // 4) The x-y co-ordinates (in canvas space) of the circular path can now be calculated:
       float px = width*0.5 + radius * cosWave; 
       float py = height*0.5 + radius * sineWave;
-      //myScale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); 
+      
+      //myScale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
       float noise1 = noise(myScale*(gridx + px+seed1), myScale*(gridy + py+seed1), myScale*(px+seed1));
       float noise2 = noise(myScale*(gridx + px+seed2), myScale*(gridy + py+seed2), myScale*(px+seed2));
       float noise3 = noise(myScale*(gridx + px+seed3), myScale*(gridy + py+seed3), myScale*(px+seed3));
@@ -151,10 +165,10 @@ void draw() {
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
-      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Bri);
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
+      if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
       
       // These shapes require that ry is a value in a similar range to rx
