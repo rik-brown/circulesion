@@ -3,50 +3,61 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
+// TO DO: Implement a higher-level loop for saving timelapse-frames to video (2018-01-03)
+// TO DO: Implement a 'stepped' mode which does not render every frame, but jumps in configurable steps (2018-01-04)
+// TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
+
 import com.hamoid.*;     // For converting frames to a .mp4 video file 
 import processing.pdf.*; // For exporting output as a .pdf file
 
 VideoExport videoExport;
 
+// Noise variables: 
 float myScale = 0.0006;     // If a static value is used (maybe a dynamic one is preferable?)
 float radius = 400.0;      // If a static value is used (maybe a dynamic one is preferable?)
-int loopFrames = 2500;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
+int loopFrames = 100;      // Total number of frames in the loop (Divide by 60 for duration in sec at 60FPS)
 float seed1 =random(1000); // To give random variation between the 3D noisespaces
 float seed2 =random(1000); // One seed per noisespace
 float seed3 =random(1000);
 
+// Cartesian Grid variables: 
 int columns, rows;
 float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 8.0;
+float ellipseMaxSize = 5.0;
 float stripeWidth = 100; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
+// File Management variables:
 int batch = 2;
-
 String applicationName = "circulesion";
-
 String logFileName;   // Name & location of logfile (.log)
 String pngFile;       // Name & location of saved output (.png final image)
 String pdfFile;       // Name & location of saved output (.pdf file)
 String framedumpPath; // Name & location of saved output (individual frames) NOT IN USE
 String mp4File;       // Name & location of video output (.mp4 file)
 
+// Loop Control variables
+int maxCycles = 10;
+int runCycle = 0;
+
+// Output configuration toggles:
 boolean makePDF = false;
 boolean savePNG = true;
-boolean makeMPEG = false;
+boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per loopFrames sequence)
+boolean makeMPEG_2 = true; // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
 boolean runOnce = true;
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-  size(10000, 10000);
+  //size(10000, 10000);
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
   //size(1000, 1000);
-  //size(800, 800);
+  size(800, 800);
   //background(0,255,255);
-  background(0);
+  background(360);
   colorMode(HSB, 360, 255, 255, 255);
   noStroke();
   //stroke(0);
@@ -58,15 +69,16 @@ void setup() {
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 3;
+  columns = 8;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
   getReady();
-  if (makeMPEG) {
-    runOnce = true;
+  if (makeMPEG_1) {makeMPEG_2 = false; runOnce = true;}
+  if (makeMPEG_2) {makeMPEG_1 = false; runOnce = false;}
+  if (makeMPEG_1 || makeMPEG_2) {
     videoExport = new VideoExport(this, mp4File);
     videoExport.setQuality(85, 128);
     videoExport.setFrameRate(60);
@@ -76,14 +88,22 @@ void setup() {
 }
 
 void draw() {
-  int currStep = frameCount%loopFrames;
-  if (currStep==0 && runOnce) {shutdown();}
+  int currStep = frameCount%loopFrames; //frameCount always starts at 0, so the first time currStep=0 will be when frameCount = loopFrames (and each successive cycle)
+  if (currStep==0) {
+    if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
+    else {
+      if (makeMPEG_2) {videoExport.saveFrame();}
+      runCycle ++;  // If runOnce is disabled, increase the runCycle counter and continue
+      if (runCycle >= maxCycles) {shutdown();}
+      background(360); //Refresh the background
+    }
+  }
   float remainingSteps = loopFrames - currStep;
   //stripeWidth = (remainingSteps * 0.3) + 10;
   stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
   float stripeStep = frameCount%stripeWidth;
   float stripeFactor = map(currStep, 0, loopFrames, 0.4, 0.6);
-  println("Frame: " + currStep);
+  println("Frame: " + currStep + " RunCycle: " + runCycle);
   float ellipseSize = map(currStep, 0, loopFrames, ellipseMaxSize, 0);
   float t = map(currStep, 0, loopFrames, 0, TWO_PI);
   float sineWave = sin(t);
@@ -101,7 +121,7 @@ void draw() {
   //float tz = t; // This angle will be used to move through the z axis
   //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
   
-  //loop for cartesian grid
+  //loop through all the elements in the cartesian grid
   for(int col = 0; col<columns; col++) {
     for(int row = 0; row<rows; row++) {
       // This is where the code for each element in the grid goes
@@ -123,7 +143,7 @@ void draw() {
       //float fill_Sat = map(noise3, 0, 1, 128,255);
       float fill_Sat = map(currStep, 0, loopFrames, 255, 64);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(currStep, 0, loopFrames, 0, 200);
+      float fill_Bri = map(currStep, 0, loopFrames, 255, 0);
       
       //draw the thing
       pushMatrix();
@@ -149,20 +169,23 @@ void draw() {
       //rect(0,0,rx,rx*ry); // Draw a rectangle
       
       popMatrix();
-    }
-  }
-  if (makeMPEG) {videoExport.saveFrame();}
+    } //Closes 'rows' loop
+  } //Closes 'columns' loop
+  
+  //Do this after you have drawn all the elements in the cartesian grid:
+  if (makeMPEG_1) {videoExport.saveFrame();}
   // Save frames for the purpose of 
   // making an animated GIF loop, 
   // e.g. with http://gifmaker.me/
+  
   if (frameCount < loopFrames) {
-    //saveFrame( "save/"+ nf(currStep, 3)+ ".jpg");
+    //saveFrame( "save/"+ nf(currStep, 3)+ ".jpg"); //Uncomment this if you want to save every frame drawn (consider making a toggle for this!)
   }
-}
+} //Closes draw() loop
 
 void keyPressed() {
   if (key == 'q') {
-    if (makeMPEG) {videoExport.endMovie();}
+    if (makeMPEG_1 || makeMPEG_2) {videoExport.endMovie();}
     exit();
   }
 }
@@ -222,7 +245,7 @@ void shutdown() {
   }
   
   // If I'm in MPEG mode, complete & close the file
-  if (makeMPEG) {
+  if (makeMPEG_1 || makeMPEG_2) {
     println("Saving .mp4 file: " + mp4File);
     videoExport.endMovie();}
   exit();
