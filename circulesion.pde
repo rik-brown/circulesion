@@ -3,7 +3,6 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
-// TO DO: Implement a higher-level loop for saving timelapse-frames to video (2018-01-03)
 // TO DO: Implement a 'stepped' mode which does not render every frame, but jumps in configurable steps (2018-01-04)
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
 // TO DO: Add start-time & end-time to the logfile, to get an idea of expected rendertime for longer videos.
@@ -19,7 +18,9 @@ import processing.pdf.*; // For exporting output as a .pdf file
 VideoExport videoExport;
 
 // Noise variables: 
-float myScale = 0.006;     // If a static value is used (maybe a dynamic one is preferable?)
+float noise1Scale = 5;
+float noise2Scale = 5;
+float noise3Scale = 5;
 float radiusMedian = 400.0; // If a static value is used (maybe a dynamic one is preferable?)
 float radiusFactor = 0.2;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
 int loopFrames = 30;       // Total number of frames in the loop (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
@@ -50,7 +51,7 @@ int cycleCount = 1;    //The equivalent of frameCount for major cycles. First cy
 boolean makePDF = false;
 boolean savePNG = true;
 boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per loopFrames sequence)
-boolean makeMPEG_2 = true;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
+boolean makeMPEG_2 = false;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
 boolean runOnce = true;     // Stop after one loopCycle (one 'timelapse' sequence)
 
 PrintWriter logFile;    // Object for writing to the settings logfile
@@ -58,11 +59,11 @@ PrintWriter logFile;    // Object for writing to the settings logfile
 void setup() {
   //fullScreen();
   //size(10000, 10000);
-  //size(6000, 6000);
+  size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
   //size(1000, 1000);
-  size(800, 800);
+  //size(800, 800);
   //size(400,400);
   //background(0,255,255);
   background(0);
@@ -83,6 +84,9 @@ void setup() {
   //rows=5;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
+  noise1Scale /= 10*w;
+  noise2Scale /= 10*w;
+  noise3Scale /= 10*w;
   getReady();
   if (makeMPEG_1) {makeMPEG_2 = false; runOnce = true;}
   if (makeMPEG_2) {makeMPEG_1 = false; runOnce = false;}
@@ -153,7 +157,7 @@ void draw() {
       float px = width*0.5 + radius * cosWave;   // px is in 'canvas space'
       float py = height*0.5 + radius * sineWave; // py is in 'canvas space'
       
-      //myScale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
+      //noise1Scale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
       
       //noiseN is a 3D noise value comprised of these 3 components:
       // X co-ordinate:
@@ -163,7 +167,7 @@ void draw() {
       // +
       // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
       //
-      // The sum of these values is multiplied by the constant scaling factor 'myScale' (whose values does not change relative to window size)
+      // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
       
       // Y co-ordinate:
       // gridy (cartesian grid position on the 2D canvas)
@@ -172,7 +176,7 @@ void draw() {
       // +
       // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
       //
-      // The sum of these values is multiplied by the constant scaling factor 'myScale' (whose values does not change relative to window size)
+      // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
       
       // Z co-ordinate:
       // Z is different from X & Y as it only needs to follow a one-dimensional cyclic path (returning to where it starts)
@@ -186,13 +190,13 @@ void draw() {
       // +
       // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
       //
-      // The sum of these values is multiplied by the constant scaling factor 'myScale' (whose values does not change relative to window size)
+      // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
       
       //noise1, 2 & 3 are basically 3 identical 'grid systems' offset at 3 arbitrary locations in the 3D noisespace.
       
-      float noise1 = noise(myScale*(gridx + px + seed1), myScale*(gridy + py + seed1), myScale*(px + seed1));
-      float noise2 = noise(myScale*(gridx + px + seed2), myScale*(gridy + py + seed2), myScale*(px + seed2));
-      float noise3 = noise(myScale*(gridx + px + seed3), myScale*(gridy + py + seed3), myScale*(px + seed3));
+      float noise1 = noise(noise1Scale*(gridx + px + seed1), noise1Scale*(gridy + py + seed1), noise1Scale*(px + seed1));
+      float noise2 = noise(noise2Scale*(gridx + px + seed2), noise2Scale*(gridy + py + seed2), noise2Scale*(px + seed2));
+      float noise3 = noise(noise3Scale*(gridx + px + seed3), noise3Scale*(gridy + py + seed3), noise3Scale*(px + seed3));
       
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
@@ -276,7 +280,7 @@ void logStart() {
   logFile.println("seed1 = " + seed1);
   logFile.println("seed2 = " + seed2);
   logFile.println("seed3 = " + seed3);
-  logFile.println("myScale = " + myScale);
+  logFile.println("noise1Scale = " + noise1Scale);
 }
 
 void logEnd() {
