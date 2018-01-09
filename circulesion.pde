@@ -109,15 +109,15 @@ void draw() {
   }
   float cycleStepAngle = map(cycleStep, 0, maxCycles-1, 0, TWO_PI); // Angle will turn through a full circle throughout one cycleStep
   float cycleStepSineWave = sin(cycleStepAngle); // Range: -1 to +1
-  float radius = radiusMedian * map(cycleStepSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor);
-  float remainingSteps = loopFrames - currStep;
+  float radius = radiusMedian * map(cycleStepSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by cycleStep
+  //float remainingSteps = loopFrames - currStep; //For stripes that are a % of remainingSteps in the loop
   //stripeWidth = (remainingSteps * 0.3) + 10;
   //stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
-  float stripeStep = frameCount%stripeWidth;
-  float stripeFactor = map(currStep, 0, loopFrames-1, 0.5, 0.5);
+  //float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
+  //float stripeFactor = map(currStep, 0, loopFrames-1, 0.5, 0.5);
   println("Frame: " + currStep + " cycleStep: " + cycleStep);
-  float ellipseSize = map(currStep, 0, loopFrames-1, ellipseMaxSize, 0);
-  float t = map(currStep, 0, loopFrames, 0, TWO_PI);
+  float ellipseSize = map(currStep, 0, loopFrames-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
+  float t = map(currStep, 0, loopFrames, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
   float sineWave = sin(t);
   float cosWave = cos(t);
   //float bkg_Hue = 240;
@@ -140,23 +140,60 @@ void draw() {
       // All the calculations which are specific to the individual element
       
       // 1) Map the grid coords (row/col) to the x/y coords in the canvas space 
-      float gridx = map (col, 0, columns, 0, width) + colOffset;
-      float gridy = map (row, 0, rows, 0, height) + rowOffset;
+      float gridx = map (col, 0, columns, 0, width) + colOffset; // gridx is in 'canvas space'
+      float gridy = map (row, 0, rows, 0, height) + rowOffset;   // gridy is in 'canvas space'
       
       // 2) A useful value for modulating other parameters can be calculated: 
-      float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);
+      float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);  // distToCenter is in 'canvas space'
       
       // 3) The radius for the x-y(z) noise loop can now be calculated (if not already done so):
       //radius = radiusMedian * map(distToCenter, 0, width*0.7, 0.5, 1.0); // In this case, radius is influenced by the distToCenter value
       
       // 4) The x-y co-ordinates (in canvas space) of the circular path can now be calculated:
-      float px = width*0.5 + radius * cosWave; 
-      float py = height*0.5 + radius * sineWave;
+      float px = width*0.5 + radius * cosWave;   // px is in 'canvas space'
+      float py = height*0.5 + radius * sineWave; // py is in 'canvas space'
       
       //myScale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
-      float noise1 = noise(myScale*(gridx + px+seed1), myScale*(gridy + py+seed1), myScale*(px+seed1));
-      float noise2 = noise(myScale*(gridx + px+seed2), myScale*(gridy + py+seed2), myScale*(px+seed2));
-      float noise3 = noise(myScale*(gridx + px+seed3), myScale*(gridy + py+seed3), myScale*(px+seed3));
+      
+      //noiseN is a 3D noise value comprised of these 3 components:
+      // X co-ordinate:
+      // gridx (cartesian grid position on the 2D canvas)
+      // +
+      // px (x co-ordinate of the current point of the circular noisepath on the 2D canvas)
+      // +
+      // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
+      //
+      // The sum of these values is multiplied by the constant scaling factor 'myScale' (whose values does not change relative to window size)
+      
+      // Y co-ordinate:
+      // gridy (cartesian grid position on the 2D canvas)
+      // +
+      // py (y co-ordinate of the current point of the circular noisepath on the 2D canvas)
+      // +
+      // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
+      //
+      // The sum of these values is multiplied by the constant scaling factor 'myScale' (whose values does not change relative to window size)
+      
+      // Z co-ordinate:
+      // Z is different from X & Y as it only needs to follow a one-dimensional cyclic path (returning to where it starts)
+      // It could keep a constant rate of change up & down (like an elevator) but I thought a sinewave might be more interesting
+      // It occurred to me that I could just as well re-use either px or py (and not even bother offsetting the angle to start at a max or min)
+      // I haven't really experimented with any other strategies, so I could be missing something here.
+      // I have a nagging feeling that the 3D pathway should be more sophisticated (e.g. mapping the surface of a sphere)
+      // but I'm not certain enough to invest the time learning the more advanced math required. (TO DO...)
+      //
+      // px (x co-ordinate of the current point of the circular noisepath on the 2D canvas)
+      // +
+      // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
+      //
+      // The sum of these values is multiplied by the constant scaling factor 'myScale' (whose values does not change relative to window size)
+      
+      //noise1, 2 & 3 are basically 3 identical 'grid systems' offset at 3 arbitrary locations in the 3D noisespace.
+      
+      float noise1 = noise(myScale*(gridx + px + seed1), myScale*(gridy + py + seed1), myScale*(px + seed1));
+      float noise2 = noise(myScale*(gridx + px + seed2), myScale*(gridy + py + seed2), myScale*(px + seed2));
+      float noise3 = noise(myScale*(gridx + px + seed3), myScale*(gridy + py + seed3), myScale*(px + seed3));
+      
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       float ry = map(noise3,0,1,0.5,1.0);
