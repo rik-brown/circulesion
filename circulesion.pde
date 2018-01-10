@@ -17,13 +17,14 @@ import processing.pdf.*; // For exporting output as a .pdf file
 
 VideoExport videoExport;
 
-// Noise variables: 
+// Noise variables:
+float noiseFactor = 2;
 float noise1Scale = 5;
 float noise2Scale = 5;
 float noise3Scale = 5;
 float radiusMedian = 400.0; // If a static value is used (maybe a dynamic one is preferable?)
 float radiusFactor = 0.2;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
-int loopFrames = 30;       // Total number of frames in the loop (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int loopFrames = 2000;       // Total number of frames in the loop (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 float seed1 =random(1000);  // To give random variation between the 3D noisespaces
 float seed2 =random(1000);  // One seed per noisespace
 float seed3 =random(1000);
@@ -31,7 +32,7 @@ float seed3 =random(1000);
 // Cartesian Grid variables: 
 int columns, rows;
 float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 3.0;
+float ellipseMaxSize = 2.0;
 float stripeWidth = loopFrames * 0.2; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
 // File Management variables:
@@ -58,8 +59,8 @@ PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-  //size(10000, 10000);
-  size(6000, 6000);
+  size(10000, 10000);
+  //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
   //size(1000, 1000);
@@ -78,15 +79,15 @@ void setup() {
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 9;
+  columns = 4;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
-  noise1Scale /= 10*w;
-  noise2Scale /= 10*w;
-  noise3Scale /= 10*w;
+  noise1Scale /= noiseFactor*w;
+  noise2Scale /= noiseFactor*w;
+  noise3Scale /= noiseFactor*w;
   getReady();
   if (makeMPEG_1) {makeMPEG_2 = false; runOnce = true;}
   if (makeMPEG_2) {makeMPEG_1 = false; runOnce = false;}
@@ -218,8 +219,9 @@ void draw() {
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
-      stroke(0,64);
-      //noFill();
+      //stroke(0,64);
+      stroke(255,32);
+      noFill();
       // These shapes require that ry is a value in a similar range to rx
       //ellipse(0,0,rx,ry); // Draw an ellipse
       //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5)); // Draw a triangle
