@@ -8,7 +8,8 @@
 // TO DO: Add start-time & end-time to the logfile, to get an idea of expected rendertime for longer videos.
 // TO DO: Use variables for bkgCol throughout (remove local hardcodes)
 // TO DO: Make sure logfiles logs everything needed to recreate a given sketch /2018-01-10)
-// BUG!   noiseNScale cannot repeatedly use /=, it will disappear to zero!
+// TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
+// Observation: When making video timelapse, the pathway to construct each each frame need not be circular! 
 
 // Consider the names:
 // Minor cycle - resulting in one timelapse frame
@@ -20,14 +21,15 @@ import processing.pdf.*; // For exporting output as a .pdf file
 VideoExport videoExport;
 
 // Noise variables:
-float noise1Scale, noise2Scale, noise3Scale;
-float noiseFactor = 2; // Last: 2  From 2 to 10 is a dramatic change!
+float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
+float noiseFactorMin = 10; // Last: 2  From 2 to 10 is a dramatic change!
+float noiseFactorMax = 12; // Last: 2  From 2 to 10 is a dramatic change!
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
 float radiusMedian = 400.0; // If a static value is used (maybe a dynamic one is preferable?)
 float radiusFactor = 0.2;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
-int loopFrames = 100;       // Total number of frames in the loop 
+int loopFrames = 200;       // Total number of frames in the loop 
 float seed1 =random(1000);  // To give random variation between the 3D noisespaces
 float seed2 =random(1000);  // One seed per noisespace
 float seed3 =random(1000);
@@ -35,7 +37,7 @@ float seed3 =random(1000);
 // Cartesian Grid variables: 
 int columns, rows, h, w;
 float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 2.0;
+float ellipseMaxSize = 8.0; // last 2
 float stripeWidth = loopFrames * 0.1; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
 // File Management variables:
@@ -48,7 +50,7 @@ String framedumpPath; // Name & location of saved output (individual frames) NOT
 String mp4File;       // Name & location of video output (.mp4 file)
 
 // Loop Control variables
-int maxCycles = 120;    //The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int maxCycles = 300;    //The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 int cycleCount = 1;    //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Output configuration toggles:
@@ -66,9 +68,9 @@ void setup() {
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
-  //size(1000, 1000);
+  size(1000, 1000);
   //size(800, 800);
-  size(400,400);
+  //size(400,400);
   //background(0,255,255);
   noiseSeed(0); //To make the noisespace identical each time (for repeatability) 
   background(0);
@@ -83,7 +85,7 @@ void setup() {
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 2;
+  columns = 4;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
@@ -116,7 +118,7 @@ void draw() {
       background(0); //Refresh the background
     }
   }
-  float cycleStepAngle = map(cycleStep, 0, maxCycles-1, 0, TWO_PI); // Angle will turn through a full circle throughout one cycleStep
+  float cycleStepAngle = PI + map(cycleStep, 0, maxCycles-1, 0, TWO_PI); // Angle will turn through a full circle throughout one cycleStep
   float cycleStepSineWave = sin(cycleStepAngle); // Range: -1 to +1
   float radius = radiusMedian * map(cycleStepSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by cycleStep
   //float remainingSteps = loopFrames - currStep; //For stripes that are a % of remainingSteps in the loop
@@ -132,7 +134,7 @@ void draw() {
   float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
-  noiseFactor = map(cycleStepSineWave, -1, 1, 1, 10);
+  noiseFactor = map(cycleStepSineWave, -1, 1, noiseFactorMin, noiseFactorMax);
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
   noise3Scale = noise3Factor/(noiseFactor*w);
@@ -239,8 +241,8 @@ void draw() {
       
       
       // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      //ellipse(0,0,rx,rx*ry); // Draw an ellipse
+      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
       //rect(0,0,rx,rx*ry); // Draw a rectangle
       
       popMatrix();
