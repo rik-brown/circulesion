@@ -7,6 +7,8 @@
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
 // TO DO: Add start-time & end-time to the logfile, to get an idea of expected rendertime for longer videos.
 // TO DO: Use variables for bkgCol throughout (remove local hardcodes)
+// TO DO: Make sure logfiles logs everything needed to recreate a given sketch /2018-01-10)
+// BUG!   noiseNScale cannot repeatedly use /=, it will disappear to zero!
 
 // Consider the names:
 // Minor cycle - resulting in one timelapse frame
@@ -18,22 +20,23 @@ import processing.pdf.*; // For exporting output as a .pdf file
 VideoExport videoExport;
 
 // Noise variables:
-float noiseFactor = 2;
-float noise1Scale = 5;
-float noise2Scale = 5;
-float noise3Scale = 5;
+float noise1Scale, noise2Scale, noise3Scale;
+float noiseFactor = 2; // Last: 2  From 2 to 10 is a dramatic change!
+float noise1Factor = 5;
+float noise2Factor = 5;
+float noise3Factor = 5;
 float radiusMedian = 400.0; // If a static value is used (maybe a dynamic one is preferable?)
 float radiusFactor = 0.2;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
-int loopFrames = 2000;       // Total number of frames in the loop (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int loopFrames = 100;       // Total number of frames in the loop 
 float seed1 =random(1000);  // To give random variation between the 3D noisespaces
 float seed2 =random(1000);  // One seed per noisespace
 float seed3 =random(1000);
 
 // Cartesian Grid variables: 
-int columns, rows;
+int columns, rows, h, w;
 float colOffset, rowOffset, hwRatio;
 float ellipseMaxSize = 2.0;
-float stripeWidth = loopFrames * 0.2; // Number of frames for a 'stripe pair' of colour 1 & colour 2
+float stripeWidth = loopFrames * 0.1; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
 // File Management variables:
 int batch = 2;
@@ -45,56 +48,57 @@ String framedumpPath; // Name & location of saved output (individual frames) NOT
 String mp4File;       // Name & location of video output (.mp4 file)
 
 // Loop Control variables
-int maxCycles = 30;
+int maxCycles = 120;    //The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 int cycleCount = 1;    //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Output configuration toggles:
 boolean makePDF = false;
 boolean savePNG = true;
 boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per loopFrames sequence)
-boolean makeMPEG_2 = false;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
+boolean makeMPEG_2 = true;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
 boolean runOnce = true;     // Stop after one loopCycle (one 'timelapse' sequence)
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-  size(10000, 10000);
+  //size(10000, 10000);
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
   //size(1000, 1000);
   //size(800, 800);
-  //size(400,400);
+  size(400,400);
   //background(0,255,255);
+  noiseSeed(0); //To make the noisespace identical each time (for repeatability) 
   background(0);
   colorMode(HSB, 360, 255, 255, 255);
   noStroke();
   //stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
-  float h = height;
-  float w = width;
+  h = height;
+  w = width;
   radiusMedian = w * 0.4; // Better to scale radiusMedian to the current canvas size than use a static value
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 4;
+  columns = 2;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
-  noise1Scale /= noiseFactor*w;
-  noise2Scale /= noiseFactor*w;
-  noise3Scale /= noiseFactor*w;
+  //noise1Scale /= noiseFactor*w;
+  //noise2Scale /= noiseFactor*w;
+  //noise3Scale /= noiseFactor*w;
   getReady();
   if (makeMPEG_1) {makeMPEG_2 = false; runOnce = true;}
   if (makeMPEG_2) {makeMPEG_1 = false; runOnce = false;}
   if (makeMPEG_1 || makeMPEG_2) {
     videoExport = new VideoExport(this, mp4File);
     videoExport.setQuality(85, 128);
-    videoExport.setFrameRate(30); // fps setting for output video (should not be lower than 30)
+    videoExport.setFrameRate(60); // fps setting for output video (should not be lower than 30)
     videoExport.setDebugging(false);
     videoExport.startMovie();
   }
@@ -118,9 +122,8 @@ void draw() {
   //float remainingSteps = loopFrames - currStep; //For stripes that are a % of remainingSteps in the loop
   //stripeWidth = (remainingSteps * 0.3) + 10;
   //stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
-  //float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
-  //float stripeFactor = map(currStep, 0, loopFrames-1, 0.5, 0.5);
-  println("Frame: " + currStep + " cycleStep: " + cycleStep);
+  float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
+  float stripeFactor = map(currStep, 0, loopFrames-1, 0.5, 0.5);
   float ellipseSize = map(currStep, 0, loopFrames-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
   float t = map(currStep, 0, loopFrames, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
   float sineWave = sin(t);
@@ -129,6 +132,11 @@ void draw() {
   float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
+  noiseFactor = map(cycleStepSineWave, -1, 1, 1, 10);
+  noise1Scale = noise1Factor/(noiseFactor*w);
+  noise2Scale = noise2Factor/(noiseFactor*w);
+  noise3Scale = noise3Factor/(noiseFactor*w);
+  
   //background(bkg_Hue, bkg_Sat, bkg_Bri);
   //background(0);
   //background(bkg_Hue, 0, bkg_Bri);
@@ -137,6 +145,8 @@ void draw() {
   //float py = height*0.5 + radius * sin(t);
   //float tz = t; // This angle will be used to move through the z axis
   //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
+  
+  println("Frame: " + currStep + " cycleStep: " + cycleStep + " noiseFactor: " + noiseFactor);
   
   //loop through all the elements in the cartesian grid
   for(int col = 0; col<columns; col++) {
@@ -217,11 +227,11 @@ void draw() {
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       fill(fill_Bri);
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
+      if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
       //stroke(0,64);
-      stroke(255,32);
-      noFill();
+      //stroke(255,32);
+      //noFill();
       // These shapes require that ry is a value in a similar range to rx
       //ellipse(0,0,rx,ry); // Draw an ellipse
       //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5)); // Draw a triangle
