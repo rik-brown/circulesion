@@ -9,6 +9,9 @@
 // TO DO: Use variables for bkgCol throughout (remove local hardcodes)
 // TO DO: Make sure logfiles logs everything needed to recreate a given sketch /2018-01-10)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
+// TO DO: Replace cycleStepSineWave with cycleStepCosWave
+// TO DO: Consider closing the logfile as soon as everything is written (if all is done at start, no need to wait til end of loop)
+// ?????: If logfile is reopened, is new text appended to the end?
 // Observation: When making video timelapse, the pathway to construct each each frame need not be circular! 
 
 // Consider the names:
@@ -20,28 +23,8 @@ import processing.pdf.*; // For exporting output as a .pdf file
 
 VideoExport videoExport;
 
-// Noise variables:
-float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
-float noiseFactorMin = 20; // Last: 2  From 2 to 10 is a dramatic change!
-float noiseFactorMax = 1; // Last: 2  From 2 to 10 is a dramatic change!
-float noise1Factor = 5;
-float noise2Factor = 5;
-float noise3Factor = 5;
-float radiusMedian; // If a static value is used (maybe a dynamic one is preferable?)
-float radiusFactor = 0;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
-int loopFrames = 500;       // Total number of frames in the loop 
-float seed1 =random(1000);  // To give random variation between the 3D noisespaces
-float seed2 =random(1000);  // One seed per noisespace
-float seed3 =random(1000);
-
-// Cartesian Grid variables: 
-int columns, rows, h, w;
-float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 6.0; // last 2
-float stripeWidth = loopFrames * 0.1; // Number of frames for a 'stripe pair' of colour 1 & colour 2
-
 // File Management variables:
-int batch = 2;
+int batch = 3;
 String applicationName = "circulesion";
 String logFileName;   // Name & location of logfile (.log)
 String pngFile;       // Name & location of saved output (.png final image)
@@ -49,8 +32,38 @@ String pdfFile;       // Name & location of saved output (.pdf file)
 String framedumpPath; // Name & location of saved output (individual frames) NOT IN USE
 String mp4File;       // Name & location of video output (.mp4 file)
 
+// Video export variables
+int videoQuality = 70; // 100 = highest quality (lossless), 70 = default 
+int videoFPS = 30; // Framerate for video playback
+
+// Noise variables:
+float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
+float noiseFactorMin = 8; 
+float noiseFactorMax = 3;
+float noise1Factor = 5;
+float noise2Factor = 5;
+float noise3Factor = 5;
+float radiusMedian; // If a static value is used (maybe a dynamic one is preferable?)
+float radiusMedianFactor = 0.2;   // Percentage of the width for calculating radiusMedian
+float radiusFactor = 0;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
+int loopFrames = 240;       // Total number of frames in the loop 
+//float seed1 =random(1000);  // To give random variation between the 3D noisespaces
+//float seed2 =random(1000);  // One seed per noisespace
+//float seed3 =random(1000);
+float seed1 =0;  // To give random variation between the 3D noisespaces
+float seed2 =0;  // One seed per noisespace
+float seed3 =0;
+int noiseSeed = 0;
+
+// Cartesian Grid variables: 
+int columns, rows, h, w;
+float colOffset, rowOffset, hwRatio;
+float ellipseMaxSize = 6.0; // last 2
+float stripeWidthFactor = 0.1;
+float stripeWidth = loopFrames * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
+
 // Loop Control variables
-int maxCycles = 600;    //The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int maxCycles = 300;    //The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 int cycleCount = 1;    //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Output configuration toggles:
@@ -68,11 +81,11 @@ void setup() {
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
-  size(1000, 1000);
-  //size(800, 800);
+  //size(1000, 1000);
+  size(800, 800);
   //size(400,400);
   //background(0,255,255);
-  noiseSeed(0); //To make the noisespace identical each time (for repeatability) 
+  noiseSeed(noiseSeed); //To make the noisespace identical each time (for repeatability) 
   background(0);
   colorMode(HSB, 360, 255, 255, 255);
   noStroke();
@@ -81,7 +94,7 @@ void setup() {
   rectMode(RADIUS);
   h = height;
   w = width;
-  radiusMedian = w * 0.2; // Better to scale radiusMedian to the current canvas size than use a static value
+  radiusMedian = w * radiusMedianFactor; // Better to scale radiusMedian to the current canvas size than use a static value
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
@@ -99,8 +112,8 @@ void setup() {
   if (makeMPEG_2) {makeMPEG_1 = false; runOnce = false;}
   if (makeMPEG_1 || makeMPEG_2) {
     videoExport = new VideoExport(this, mp4File);
-    videoExport.setQuality(85, 128);
-    videoExport.setFrameRate(60); // fps setting for output video (should not be lower than 30)
+    videoExport.setQuality(videoQuality, 128);
+    videoExport.setFrameRate(videoFPS); // fps setting for output video (should not be lower than 30)
     videoExport.setDebugging(false);
     videoExport.startMovie();
   }
@@ -113,13 +126,14 @@ void draw() {
     if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
     else {
       if (makeMPEG_2) {videoExport.saveFrame();}
+      background(0); //Refresh the background
       cycleCount ++;  // If runOnce is disabled, increase the cycle counter and continue
       if (cycleStep == 0) {shutdown();}
-      background(0); //Refresh the background
     }
   }
   float cycleStepAngle = PI + map(cycleStep, 0, maxCycles-1, 0, TWO_PI); // Angle will turn through a full circle throughout one cycleStep
   float cycleStepSineWave = sin(cycleStepAngle); // Range: -1 to +1
+  float cycleStepCosWave = cos(cycleStepAngle); // Range: -1 to +1
   float radius = radiusMedian * map(cycleStepSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by cycleStep
   //float remainingSteps = loopFrames - currStep; //For stripes that are a % of remainingSteps in the loop
   //stripeWidth = (remainingSteps * 0.3) + 10;
@@ -134,7 +148,7 @@ void draw() {
   float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
-  noiseFactor = sq(map(cycleStepSineWave, -1, 1, noiseFactorMin, noiseFactorMax));
+  noiseFactor = sq(map(cycleStepCosWave, -1, 1, noiseFactorMin, noiseFactorMax));
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
   noise3Scale = noise3Factor/(noiseFactor*w);
@@ -285,18 +299,6 @@ void getReady() {
   }
 }
 
-void logStart() {
-  logFile.println(pngFile);
-  logFile.println("loopFrames = " + loopFrames);
-  logFile.println("columns = " + columns);
-  logFile.println("rows = " + rows);
-  logFile.println("ellipseMaxSize = " + ellipseMaxSize);
-  logFile.println("seed1 = " + seed1);
-  logFile.println("seed2 = " + seed2);
-  logFile.println("seed3 = " + seed3);
-  logFile.println("noise1Scale = " + noise1Scale);
-}
-
 void logEnd() {
   logFile.flush();
   logFile.close(); //Flush and close the settings file
@@ -328,6 +330,7 @@ void shutdown() {
   exit();
 }
 
+
 //returns a string with the date & time in the format 'yyyymmdd-hhmmss'
 String timeStamp() {
   String s = String.valueOf(nf(second(),2));
@@ -338,4 +341,31 @@ String timeStamp() {
   String y = String.valueOf(nf(year(),4));
   String timestamp = y + mo + d + "-" + h + m + s;
   return timestamp;
+}
+
+void logStart() {
+  logFile.println(pngFile);
+  logFile.println("width = " + w);
+  logFile.println("height = " + h);
+  logFile.println("videoQuality = " + videoQuality);
+  logFile.println("videoFPS = " + videoFPS);
+  logFile.println("loopFrames = " + loopFrames);
+  logFile.println("maxCycles = " + maxCycles);
+  logFile.println("columns = " + columns);
+  logFile.println("rows = " + rows);
+  logFile.println("ellipseMaxSize = " + ellipseMaxSize);
+  logFile.println("noiseSeed = " + noiseSeed);
+  logFile.println("seed1 = " + seed1);
+  logFile.println("seed2 = " + seed2);
+  logFile.println("seed3 = " + seed3);
+  logFile.println("noiseFactorMin = " + noiseFactorMin);
+  logFile.println("noiseFactorMax = " + noiseFactorMax);
+  logFile.println("noise1Factor = " + noise1Factor);
+  logFile.println("noise2Factor = " + noise2Factor);
+  logFile.println("noise3Factor = " + noise3Factor);
+  logFile.println("radiusMedianFactor = " + radiusMedianFactor);
+  logFile.println("radiusMedian = " + radiusMedian);
+  logFile.println("stripeWidthFactor = " + stripeWidthFactor);
+  logFile.println("stripeWidth = " + stripeWidth);
+  logFile.println("radiusFactor = " + radiusFactor);
 }
