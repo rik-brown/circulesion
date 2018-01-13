@@ -7,9 +7,7 @@
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
 // TO DO: Add start-time & end-time to the logfile, to get an idea of expected rendertime for longer videos.
 // TO DO: Use variables for bkgCol throughout (remove local hardcodes)
-// TO DO: Make sure logfiles logs everything needed to recreate a given sketch /2018-01-10)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
-// TO DO: Replace cycleStepSineWave with cycleStepCosWave
 // TO DO: Consider closing the logfile as soon as everything is written (if all is done at start, no need to wait til end of loop)
 // ?????: If logfile is reopened, is new text appended to the end?
 // Observation: When making video timelapse, the pathway to construct each each frame need not be circular! 
@@ -38,15 +36,16 @@ int videoFPS = 30; // Framerate for video playback
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
-float noiseFactorMin = 8; 
-float noiseFactorMax = 3;
+float noiseFactorMin = 9; 
+float noiseFactorMax = 3
+;
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
 float radiusMedian; // If a static value is used (maybe a dynamic one is preferable?)
 float radiusMedianFactor = 0.2;   // Percentage of the width for calculating radiusMedian
 float radiusFactor = 0;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
-int loopFrames = 240;       // Total number of frames in the loop 
+int loopFrames = 300;       // Total number of frames in the timelapse loop 
 //float seed1 =random(1000);  // To give random variation between the 3D noisespaces
 //float seed2 =random(1000);  // One seed per noisespace
 //float seed3 =random(1000);
@@ -63,7 +62,7 @@ float stripeWidthFactor = 0.1;
 float stripeWidth = loopFrames * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
 // Loop Control variables
-int maxCycles = 300;    //The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int maxCycles = 240;    //8 sec. The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 int cycleCount = 1;    //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Output configuration toggles:
@@ -98,7 +97,7 @@ void setup() {
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 9;
+  columns = 3;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
@@ -232,7 +231,7 @@ void draw() {
       //float fill_Sat = map(noise3, 0, 1, 128,255);
       float fill_Sat = map(currStep, 0, loopFrames, 255, 64);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(currStep, 0, loopFrames, 32, 255);
+      float fill_Bri = map(currStep, 0, loopFrames, 0, 255);
       
       //draw the thing
       pushMatrix();
@@ -241,10 +240,12 @@ void draw() {
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
-      fill(fill_Bri);
+
+      //fill(fill_Bri);
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
-      if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
+      //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
+      //if (stripeStep >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
+      if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
       //stroke(0,64);
       //stroke(255,32);
       //noFill();
