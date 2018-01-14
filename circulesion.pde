@@ -61,8 +61,8 @@ int noiseOctaves; // Integer in the range 3-8? Default: 7
 int noiseOctavesMin = 3;
 int noiseOctavesMax = 8;
 float noiseFalloff; // Floar in the range 0.0 - 1.0 Default: 0.5 NOTE: Values >0.5 may give noise() value >1.0
-float noiseFalloffMin = 0.3;
-float noiseFalloffMax = 0.65;
+float noiseFalloffMin = 0.5;
+float noiseFalloffMax = 0.5;
 
 
 // Cartesian Grid variables: 
@@ -155,8 +155,8 @@ void draw() {
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
   noiseOctaves = int(map(cycleStepCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
-  noiseFalloff = int(map(cycleStepCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax));
-  noiseDetail(noiseOctaves);
+  noiseFalloff = map(cycleStepCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
+  noiseDetail(noiseOctaves, noiseFalloff);
   noiseFactor = sq(map(cycleStepCosWave, -1, 1, noiseFactorMin, noiseFactorMax));
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
