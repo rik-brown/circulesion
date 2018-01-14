@@ -34,6 +34,11 @@ String mp4File;       // Name & location of video output (.mp4 file)
 int videoQuality = 70; // 100 = highest quality (lossless), 70 = default 
 int videoFPS = 30; // Framerate for video playback
 
+// Loop Control variables
+int loopFrames = 100;   // Total number of drawcycles (frames) in the timelapse loop
+int maxCycles = 180;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int cycleCount = 1;     //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
+
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
 float noiseFactorMin = 4; 
@@ -44,7 +49,7 @@ float noise3Factor = 5;
 float radiusMedian; // If a static value is used (maybe a dynamic one is preferable?)
 float radiusMedianFactor = 0.2;   // Percentage of the width for calculating radiusMedian
 float radiusFactor = 0;   // By how much (+/- %) should the radius vary throughout the timelapse cycle?
-int loopFrames = 300;       // Total number of frames in the timelapse loop 
+ 
 //float seed1 =random(1000);  // To give random variation between the 3D noisespaces
 //float seed2 =random(1000);  // One seed per noisespace
 //float seed3 =random(1000);
@@ -52,9 +57,12 @@ float seed1 =0;  // To give random variation between the 3D noisespaces
 float seed2 =0;  // One seed per noisespace
 float seed3 =0;
 int noiseSeed = 0;
-int noiseDetail;
-int noiseDetailMin;
-int noiseDetailMax;
+int noiseOctaves; // Integer in the range 3-8? Default: 7
+int noiseOctavesMin = 3;
+int noiseOctavesMax = 8;
+float noiseFalloff; // Floar in the range 0.0 - 1.0 Default: 0.5 NOTE: Values >0.5 may give noise() value >1.0
+float noiseFalloffMin = 0.3;
+float noiseFalloffMax = 0.65;
 
 
 // Cartesian Grid variables: 
@@ -63,10 +71,6 @@ float colOffset, rowOffset, hwRatio;
 float ellipseMaxSize = 6.0; // last 2
 float stripeWidthFactor = 0.1;
 float stripeWidth = loopFrames * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
-
-// Loop Control variables
-int maxCycles = 240;    //8 sec. The number of timelapse frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
-int cycleCount = 1;    //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Output configuration toggles:
 boolean makePDF = false;
@@ -150,8 +154,9 @@ void draw() {
   float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
-  noiseDetail = int(map(cycleStepCosWave, -1, 1, noiseDetailMin, noiseDetailMax));
-  noiseDetail(noiseDetail);
+  noiseOctaves = int(map(cycleStepCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
+  noiseFalloff = int(map(cycleStepCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax));
+  noiseDetail(noiseOctaves);
   noiseFactor = sq(map(cycleStepCosWave, -1, 1, noiseFactorMin, noiseFactorMax));
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
@@ -166,7 +171,7 @@ void draw() {
   //float tz = t; // This angle will be used to move through the z axis
   //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
   
-  println("Frame: " + currStep + " cycleStep: " + cycleStep + " noiseFactor: " + noiseFactor + " noiseDetail: " + noiseDetail);
+  println("Frame: " + currStep + " cycleStep: " + cycleStep + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
   
   //loop through all the elements in the cartesian grid
   for(int col = 0; col<columns; col++) {
@@ -366,8 +371,10 @@ void logStart() {
   logFile.println("seed3 = " + seed3);
   logFile.println("noiseFactorMin = " + noiseFactorMin);
   logFile.println("noiseFactorMax = " + noiseFactorMax);
-  logFile.println("noiseDetailMin = " + noiseDetailMin);
-  logFile.println("noiseDetailMax = " + noiseDetailMax);
+  logFile.println("noiseOctavesMin = " + noiseOctavesMin);
+  logFile.println("noiseOctavesMax = " + noiseOctavesMax);
+  logFile.println("noiseFalloffMin = " + noiseFalloffMin);
+  logFile.println("noiseFalloffMax = " + noiseFalloffMax);
   logFile.println("noise1Factor = " + noise1Factor);
   logFile.println("noise2Factor = " + noise2Factor);
   logFile.println("noise3Factor = " + noise3Factor);
