@@ -36,9 +36,8 @@ int videoFPS = 30; // Framerate for video playback
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
-float noiseFactorMin = 9; 
-float noiseFactorMax = 3
-;
+float noiseFactorMin = 4; 
+float noiseFactorMax = 4;
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
@@ -53,6 +52,10 @@ float seed1 =0;  // To give random variation between the 3D noisespaces
 float seed2 =0;  // One seed per noisespace
 float seed3 =0;
 int noiseSeed = 0;
+int noiseDetail;
+int noiseDetailMin;
+int noiseDetailMax;
+
 
 // Cartesian Grid variables: 
 int columns, rows, h, w;
@@ -147,6 +150,8 @@ void draw() {
   float bkg_Hue = map(sineWave, -1, 1, 240, 200);
   float bkg_Sat = 255;
   float bkg_Bri = map(sineWave, -1, 1, 100, 255);
+  noiseDetail = int(map(cycleStepCosWave, -1, 1, noiseDetailMin, noiseDetailMax));
+  noiseDetail(noiseDetail);
   noiseFactor = sq(map(cycleStepCosWave, -1, 1, noiseFactorMin, noiseFactorMax));
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
@@ -161,7 +166,7 @@ void draw() {
   //float tz = t; // This angle will be used to move through the z axis
   //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
   
-  println("Frame: " + currStep + " cycleStep: " + cycleStep + " noiseFactor: " + noiseFactor);
+  println("Frame: " + currStep + " cycleStep: " + cycleStep + " noiseFactor: " + noiseFactor + " noiseDetail: " + noiseDetail);
   
   //loop through all the elements in the cartesian grid
   for(int col = 0; col<columns; col++) {
@@ -361,6 +366,8 @@ void logStart() {
   logFile.println("seed3 = " + seed3);
   logFile.println("noiseFactorMin = " + noiseFactorMin);
   logFile.println("noiseFactorMax = " + noiseFactorMax);
+  logFile.println("noiseDetailMin = " + noiseDetailMin);
+  logFile.println("noiseDetailMax = " + noiseDetailMax);
   logFile.println("noise1Factor = " + noise1Factor);
   logFile.println("noise2Factor = " + noise2Factor);
   logFile.println("noise3Factor = " + noise3Factor);
