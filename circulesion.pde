@@ -47,14 +47,14 @@ int videoQuality = 75; // 100 = highest quality (lossless), 70 = default
 int videoFPS = 30; // Framerate for video playback
 
 // Loop Control variables
-int loopFrames = 600;   // Total number of drawcycles (frames) in the timelapse loop
+int loopFrames = 1000;   // Total number of drawcycles (frames) in the timelapse loop
 int maxCycles = 180;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 int cycleCount = 1;     //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
-float noiseFactorMin = 5; 
-float noiseFactorMax = 5;
+float noiseFactorMin = 3.8; 
+float noiseFactorMax = 3.8;
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
@@ -70,15 +70,16 @@ float seed2 =0;  // One seed per noisespace
 float seed3 =0;
 int noiseSeed = 0;
 int noiseOctaves; // Integer in the range 3-8? Default: 7
-int noiseOctavesMin = 3;
-int noiseOctavesMax = 3;
+int noiseOctavesMin = 9;
+int noiseOctavesMax = 9;
 float noiseFalloff; // Floar in the range 0.0 - 1.0 Default: 0.5 NOTE: Values >0.5 may give noise() value >1.0
 float noiseFalloffMin = 0.5;
 float noiseFalloffMax = 0.5;
 
 
 // Cartesian Grid variables: 
-int columns, rows, h, w;
+int columns = 9;
+int rows, h, w;
 float colOffset, rowOffset, hwRatio;
 float ellipseMaxSize = 5.0; // last 2
 float stripeWidthFactor = 0.1;
@@ -126,7 +127,7 @@ void setup() {
   hwRatio = h/w;
   println("Width: " + w + " Height: " + h + " h/w ratio: " + hwRatio);
   //columns = int(random(3, 7));
-  columns = 3;
+  //columns = 3;
   rows = int(hwRatio * columns);
   //rows = columns;
   //rows=5;
@@ -173,9 +174,9 @@ void draw() {
   float t = map(currStep, 0, loopFrames, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
   float sineWave = sin(t);
   float cosWave = cos(t);
-  bkg_Hue = 0;
-  bkg_Sat = 255;
-  bkg_Bri = 255;
+  //bkg_Hue = 0;
+  //bkg_Sat = 255;
+  //bkg_Bri = 255;
   //bkg_Hue = map(sineWave, -1, 1, 240, 200);
   //bkg_Bri = map(sineWave, -1, 1, 100, 255);
   noiseOctaves = int(map(cycleStepCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
@@ -263,9 +264,11 @@ void draw() {
       float ry = map(noise3,0,1,0.5,1.0);
       float fill_Hue = map(noise1, 0, 1, 0, 20);
       //float fill_Sat = map(noise3, 0, 1, 128,255);
-      float fill_Sat = map(currStep, 0, loopFrames, 255, 64);
+      float fill_Sat = map(currStep, 0, loopFrames, 255, 96);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(currStep, 0, loopFrames, 0, 255);
+      float fill_Bri = map(currStep, 0, loopFrames, 32, 255);
+      bkg_Bri = map(currStep, 0, loopFrames, 255, 64);
+      bkg_Sat = map(currStep, 0, loopFrames, 128, 255);
       
       //draw the thing
       pushMatrix();
@@ -281,7 +284,8 @@ void draw() {
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
       
       // TO DO: Could use bkg as the alternative stripe color???
-      if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
+      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
+      if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
       //stroke(0,64);
       //stroke(255,32);
       //noFill();
