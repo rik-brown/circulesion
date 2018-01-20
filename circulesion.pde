@@ -27,10 +27,6 @@
 
 // Observation: When making video timelapse, the pathway to construct each each frame need not be circular! 
 
-// Consider the names:
-// Minor cycle (or Generation)  - resulting in one timelapse frame
-// Major cycle (or Epoch)       - resulting in one timelapse video
-
 import com.hamoid.*;     // For converting frames to a .mp4 video file 
 import processing.pdf.*; // For exporting output as a .pdf file
 
@@ -47,12 +43,12 @@ String mp4File;       // Name & location of video output (.mp4 file)
 
 // Video export variables
 int videoQuality = 75; // 100 = highest quality (lossless), 70 = default 
-int videoFPS = 30; // Framerate for video playback
+int videoFPS = 30;     // Framerate for video playback
 
 // Loop Control variables
-int generations = 4;   // Total number of drawcycles (frames) in the timelapse loop
-int epochs = 360;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
-int epochCount = 1;     //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
+int generations = 4;   // Total number of drawcycles (frames) in a generation (timelapse loop)
+int epochs = 360;      // 8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int epochCount = 1;    // The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
@@ -96,9 +92,9 @@ float bkg_Bri;
 // Output configuration toggles:
 boolean makePDF = false;
 boolean savePNG = false;
-boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per generations sequence)
-boolean makeMPEG_2 = true;  // Enable video output for animation of a series of cycles (one frame per generations cycle, one video per epoch sequence)
-boolean runOnce = true;     // Stop after one loopCycle (one 'timelapse' sequence)
+boolean makeGeneratuionMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
+boolean makeEpochMPEG = true;        // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
+boolean runOnce = true;              // Stop after one generation cycle (one 'timelapse' sequence)
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
@@ -139,9 +135,9 @@ void setup() {
   //noise2Scale /= noiseFactor*w;
   //noise3Scale /= noiseFactor*w;
   getReady();
-  if (makeMPEG_1) {makeMPEG_2 = false; runOnce = true;}
-  if (makeMPEG_2) {makeMPEG_1 = false; runOnce = false;}
-  if (makeMPEG_1 || makeMPEG_2) {
+  if (makeGeneratuionMPEG) {makeEpochMPEG = false; runOnce = true;}
+  if (makeEpochMPEG) {makeGeneratuionMPEG = false; runOnce = false;}
+  if (makeGeneratuionMPEG || makeEpochMPEG) {
     videoExport = new VideoExport(this, mp4File);
     videoExport.setQuality(videoQuality, 128);
     videoExport.setFrameRate(videoFPS); // fps setting for output video (should not be lower than 30)
@@ -156,7 +152,7 @@ void draw() {
   if (generation==0) {
     if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
     else {
-      if (makeMPEG_2) {videoExport.saveFrame();}
+      if (makeEpochMPEG) {videoExport.saveFrame();}
       //background(bkg_Bri); //Refresh the background
       background(bkg_Hue, bkg_Sat, bkg_Bri);
       epochCount ++;  // If runOnce is disabled, increase the cycle counter and continue
@@ -309,7 +305,7 @@ void draw() {
   } //Closes 'columns' loop
   
   //Do this after you have drawn all the elements in the cartesian grid:
-  if (makeMPEG_1) {videoExport.saveFrame();}
+  if (makeGeneratuionMPEG) {videoExport.saveFrame();}
   // Save frames for the purpose of 
   // making an animated GIF loop, 
   // e.g. with http://gifmaker.me/
@@ -321,7 +317,7 @@ void draw() {
 
 void keyPressed() {
   if (key == 'q') {
-    if (makeMPEG_1 || makeMPEG_2) {videoExport.endMovie();}
+    if (makeGeneratuionMPEG || makeEpochMPEG) {videoExport.endMovie();}
     exit();
   }
 }
@@ -362,7 +358,7 @@ void shutdown() {
   }
   
   // If I'm in MPEG mode, complete & close the file
-  if (makeMPEG_1 || makeMPEG_2) {
+  if (makeGeneratuionMPEG || makeEpochMPEG) {
     println("Saving .mp4 file: " + mp4File);
     videoExport.endMovie();}
   exit();
