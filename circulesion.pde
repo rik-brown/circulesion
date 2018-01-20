@@ -48,7 +48,7 @@ int videoFPS = 30;     // Framerate for video playback
 // Loop Control variables
 int generations = 4;   // Total number of drawcycles (frames) in a generation (timelapse loop)
 int epochs = 360;      // 8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
-int epochCount = 1;    // The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
+//int epochCount = 1;    // OBSOLETE!! The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
@@ -91,8 +91,9 @@ float bkg_Bri;
 
 // Output configuration toggles:
 boolean makePDF = false;
-boolean savePNG = false;
-boolean makeGeneratuionMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
+boolean saveDrawFramePNG = false;
+boolean saveGenerationPNG = false;
+boolean makeGenerationMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
 boolean makeEpochMPEG = true;        // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
 boolean runOnce = true;              // Stop after one generation cycle (one 'timelapse' sequence)
 
@@ -135,9 +136,9 @@ void setup() {
   //noise2Scale /= noiseFactor*w;
   //noise3Scale /= noiseFactor*w;
   getReady();
-  if (makeGeneratuionMPEG) {makeEpochMPEG = false; runOnce = true;}
-  if (makeEpochMPEG) {makeGeneratuionMPEG = false; runOnce = false;}
-  if (makeGeneratuionMPEG || makeEpochMPEG) {
+  if (makeGenerationMPEG) {makeEpochMPEG = false; runOnce = true;}
+  if (makeEpochMPEG) {makeGenerationMPEG = false; runOnce = false;}
+  if (makeGenerationMPEG || makeEpochMPEG) {
     videoExport = new VideoExport(this, mp4File);
     videoExport.setQuality(videoQuality, 128);
     videoExport.setFrameRate(videoFPS); // fps setting for output video (should not be lower than 30)
@@ -147,8 +148,8 @@ void setup() {
 }
 
 void draw() {
-  int generation = frameCount%generations; //frameCount always starts at 1, so the first time generation=0 will be when frameCount = generations (and each successive cycle)
-  int epoch = epochCount%epochs; //epochCount always starts at 1, so the first time epoch=0 will be when epochCount = epochs (and each successive cycle)
+  //int generation = frameCount%generations; // OBSOLETE!! frameCount always starts at 1, so the first time generation=0 will be when frameCount = generations (and each successive cycle)
+  // int epoch = epochCount%epochs; // OBSOLETE! epochCount always starts at 1, so the first time epoch=0 will be when epochCount = epochs (and each successive cycle)
   if (generation==0) {
     if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
     else {
@@ -159,165 +160,194 @@ void draw() {
       if (epoch == 0) {shutdown();}
     }
   }
-  float epochAngle = PI + map(epoch, 0, epochs-1, 0, TWO_PI); // Angle will turn through a full circle throughout one epoch
-  float epochSineWave = sin(epochAngle); // Range: -1 to +1
-  float epochCosWave = cos(epochAngle); // Range: -1 to +1
-  float radius = radiusMedian * map(epochSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by epoch
-  //float remainingSteps = generations - generation; //For stripes that are a % of remainingSteps in the loop
-  //stripeWidth = (remainingSteps * 0.3) + 10;
-  //stripeWidth = map(generation, 0, generations, generations*0.25, generations*0.1);
-  float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
-  float stripeFactor = map(generation, 0, generations-1, 0.5, 0.5);
-  float ellipseSize = map(generation, 0, generations-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
-  float t = map(generation, 0, generations, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
-  float sineWave = sin(t);
-  float cosWave = cos(t);
-  //bkg_Hue = 0;
-  //bkg_Sat = 255;
-  //bkg_Bri = 255;
-  //bkg_Hue = map(sineWave, -1, 1, 240, 200);
-  //bkg_Bri = map(sineWave, -1, 1, 100, 255);
-  noiseOctaves = int(map(epochCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
-  noiseFalloff = map(epochCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
-  noiseDetail(noiseOctaves, noiseFalloff);
-  noiseFactor = sq(map(epochCosWave, -1, 1, noiseFactorMax, noiseFactorMin));
-  noise1Scale = noise1Factor/(noiseFactor*w);
-  noise2Scale = noise2Factor/(noiseFactor*w);
-  noise3Scale = noise3Factor/(noiseFactor*w);
   
-  //background(bkg_Hue, bkg_Sat, bkg_Bri);
-  //background(bkg_Bri);
-  //background(bkg_Hue, 0, bkg_Bri);
-   
-  //float px = width*0.5 + radius * cos(t); 
-  //float py = height*0.5 + radius * sin(t);
-  //float tz = t; // This angle will be used to move through the z axis
-  //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
-  
-  println("Frame: " + generation + " epoch: " + epoch + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
-  
-  //loop through all the elements in the cartesian grid
-  for(int col = 0; col<columns; col++) {
-    for(int row = 0; row<rows; row++) {
-      // This is where the code for each element in the grid goes
-      // All the calculations which are specific to the individual element
+  // Epoch loop:
+  for(int epoch = 1; epoch=epochs; epoch++) {
       
-      // 1) Map the grid coords (row/col) to the x/y coords in the canvas space 
-      float gridx = map (col, 0, columns, 0, width) + colOffset; // gridx is in 'canvas space'
-      float gridy = map (row, 0, rows, 0, height) + rowOffset;   // gridy is in 'canvas space'
+    // Generation loop:
+    for(int generation = 1; generation=generations; generation++) {
       
-      // 2) A useful value for modulating other parameters can be calculated: 
-      float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);  // distToCenter is in 'canvas space'
-      
-      // 3) The radius for the x-y(z) noise loop can now be calculated (if not already done so):
-      //radius = radiusMedian * map(distToCenter, 0, width*0.7, 0.5, 1.0); // In this case, radius is influenced by the distToCenter value
-      
-      // 4) The x-y co-ordinates (in canvas space) of the circular path can now be calculated:
-      float px = width*0.5 + radius * cosWave;   // px is in 'canvas space'
-      float py = height*0.5 + radius * sineWave; // py is in 'canvas space'
-      
-      //noise1Scale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
-      
-      //noiseN is a 3D noise value comprised of these 3 components:
-      // X co-ordinate:
-      // gridx (cartesian grid position on the 2D canvas)
-      // +
-      // px (x co-ordinate of the current point of the circular noisepath on the 2D canvas)
-      // +
-      // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
-      //
-      // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
-      
-      // Y co-ordinate:
-      // gridy (cartesian grid position on the 2D canvas)
-      // +
-      // py (y co-ordinate of the current point of the circular noisepath on the 2D canvas)
-      // +
-      // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
-      //
-      // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
-      
-      // Z co-ordinate:
-      // Z is different from X & Y as it only needs to follow a one-dimensional cyclic path (returning to where it starts)
-      // It could keep a constant rate of change up & down (like an elevator) but I thought a sinewave might be more interesting
-      // It occurred to me that I could just as well re-use either px or py (and not even bother offsetting the angle to start at a max or min)
-      // I haven't really experimented with any other strategies, so I could be missing something here.
-      // I have a nagging feeling that the 3D pathway should be more sophisticated (e.g. mapping the surface of a sphere)
-      // but I'm not certain enough to invest the time learning the more advanced math required. (TO DO...)
-      //
-      // px (x co-ordinate of the current point of the circular noisepath on the 2D canvas)
-      // +
-      // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
-      //
-      // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
-      
-      //noise1, 2 & 3 are basically 3 identical 'grid systems' offset at 3 arbitrary locations in the 3D noisespace.
-      
-      float noise1 = noise(noise1Scale*(gridx + px + seed1), noise1Scale*(gridy + py + seed1), noise1Scale*(px + seed1));
-      float noise2 = noise(noise2Scale*(gridx + px + seed2), noise2Scale*(gridy + py + seed2), noise2Scale*(px + seed2));
-      float noise3 = noise(noise3Scale*(gridx + px + seed3), noise3Scale*(gridy + py + seed3), noise3Scale*(px + seed3));
-      
-      float rx = map(noise2,0,1,0,colOffset*ellipseSize);
-      //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
-      float ry = map(noise3,0,1,0.5,1.0);
-      //float fill_Hue = map(noise1, 0, 1, 0, 20);
-      float fill_Hue = map(generation, 0, generations, 240, 240);
-      //float fill_Sat = map(noise3, 0, 1, 128,255);
-      //float fill_Sat = 0;
-      float fill_Sat = map(generation, 0, generations, 255, 0);
-      //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(generation, 0, generations, 255, 255);
-      //bkg_Bri = map(generation, 0, generations, 255, 128);
-      //bkg_Sat = map(generation, 0, generations, 160, 255);
-      
-      //draw the thing
-      pushMatrix();
-      translate(gridx, gridy); // Go to the grid location
-      rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
-      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
-      //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
-      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
-
-      //fill(fill_Bri);
-      //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
-      
-      // TO DO: Could use bkg as the alternative stripe color???
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
-      //stroke(0,64);
-      //stroke(255,32);
-      //noFill();
-      // These shapes require that ry is a value in a similar range to rx
-      //ellipse(0,0,rx,ry); // Draw an ellipse
-      //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5)); // Draw a triangle
-      //rect(0,0,rx,ry); // Draw a rectangle
+      // Everything after this (I think) is inside the epoch loop
+      float epochAngle = PI + map(epoch, 0, epochs-1, 0, TWO_PI); // Angle will turn through a full circle throughout one epoch
+      float epochSineWave = sin(epochAngle); // Range: -1 to +1
+      float epochCosWave = cos(epochAngle); // Range: -1 to +1
+      float radius = radiusMedian * map(epochSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by epoch
       
       
-      // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
-      //ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
-      rect(0,0,rx,rx*ry); // Draw a rectangle
+      // Everything after this (I think) is inside the generation loop
+      //float remainingSteps = generations - generation; //For stripes that are a % of remainingSteps in the loop
+      //stripeWidth = (remainingSteps * 0.3) + 10;
+      //stripeWidth = map(generation, 0, generations, generations*0.25, generations*0.1);
+      float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
+      float stripeFactor = map(generation, 0, generations-1, 0.5, 0.5);
+      float ellipseSize = map(generation, 0, generations-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
+      float t = map(generation, 0, generations, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
+      float sineWave = sin(t);
+      float cosWave = cos(t);
+      //bkg_Hue = 0;
+      //bkg_Sat = 255;
+      //bkg_Bri = 255;
+      //bkg_Hue = map(sineWave, -1, 1, 240, 200);
+      //bkg_Bri = map(sineWave, -1, 1, 100, 255);
+      noiseOctaves = int(map(epochCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
+      noiseFalloff = map(epochCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
+      noiseDetail(noiseOctaves, noiseFalloff);
+      noiseFactor = sq(map(epochCosWave, -1, 1, noiseFactorMax, noiseFactorMin));
+      noise1Scale = noise1Factor/(noiseFactor*w);
+      noise2Scale = noise2Factor/(noiseFactor*w);
+      noise3Scale = noise3Factor/(noiseFactor*w);
       
-      popMatrix();
-    } //Closes 'rows' loop
-  } //Closes 'columns' loop
-  
-  //Do this after you have drawn all the elements in the cartesian grid:
-  if (makeGeneratuionMPEG) {videoExport.saveFrame();}
-  // Save frames for the purpose of 
-  // making an animated GIF loop, 
-  // e.g. with http://gifmaker.me/
-  
-  if (frameCount < generations) {
-    //saveFrame( "save/"+ nf(generation, 3)+ ".jpg"); //Uncomment this if you want to save every frame drawn (consider making a toggle for this!)
+      //background(bkg_Hue, bkg_Sat, bkg_Bri);
+      //background(bkg_Bri);
+      //background(bkg_Hue, 0, bkg_Bri);
+       
+      //float px = width*0.5 + radius * cos(t); 
+      //float py = height*0.5 + radius * sin(t);
+      //float tz = t; // This angle will be used to move through the z axis
+      //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
+      
+      println("Frame: " + generation + " epoch: " + epoch + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
+      
+      //loop through all the elements in the cartesian grid
+      for(int col = 0; col<columns; col++) {
+        for(int row = 0; row<rows; row++) {
+          // This is where the code for each element in the grid goes
+          // All the calculations which are specific to the individual element
+          
+          // 1) Map the grid coords (row/col) to the x/y coords in the canvas space 
+          float gridx = map (col, 0, columns, 0, width) + colOffset; // gridx is in 'canvas space'
+          float gridy = map (row, 0, rows, 0, height) + rowOffset;   // gridy is in 'canvas space'
+          
+          // 2) A useful value for modulating other parameters can be calculated: 
+          float distToCenter = dist(gridx, gridy, width*0.5, height*0.5);  // distToCenter is in 'canvas space'
+          
+          // 3) The radius for the x-y(z) noise loop can now be calculated (if not already done so):
+          //radius = radiusMedian * map(distToCenter, 0, width*0.7, 0.5, 1.0); // In this case, radius is influenced by the distToCenter value
+          
+          // 4) The x-y co-ordinates (in canvas space) of the circular path can now be calculated:
+          float px = width*0.5 + radius * cosWave;   // px is in 'canvas space'
+          float py = height*0.5 + radius * sineWave; // py is in 'canvas space'
+          
+          //noise1Scale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
+          
+          //noiseN is a 3D noise value comprised of these 3 components:
+          // X co-ordinate:
+          // gridx (cartesian grid position on the 2D canvas)
+          // +
+          // px (x co-ordinate of the current point of the circular noisepath on the 2D canvas)
+          // +
+          // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
+          //
+          // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
+          
+          // Y co-ordinate:
+          // gridy (cartesian grid position on the 2D canvas)
+          // +
+          // py (y co-ordinate of the current point of the circular noisepath on the 2D canvas)
+          // +
+          // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
+          //
+          // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
+          
+          // Z co-ordinate:
+          // Z is different from X & Y as it only needs to follow a one-dimensional cyclic path (returning to where it starts)
+          // It could keep a constant rate of change up & down (like an elevator) but I thought a sinewave might be more interesting
+          // It occurred to me that I could just as well re-use either px or py (and not even bother offsetting the angle to start at a max or min)
+          // I haven't really experimented with any other strategies, so I could be missing something here.
+          // I have a nagging feeling that the 3D pathway should be more sophisticated (e.g. mapping the surface of a sphere)
+          // but I'm not certain enough to invest the time learning the more advanced math required. (TO DO...)
+          //
+          // px (x co-ordinate of the current point of the circular noisepath on the 2D canvas)
+          // +
+          // seedN (arbitrary noise seed number offsetting the canvas along the x-axis)
+          //
+          // The sum of these values is multiplied by the constant scaling factor 'noise1Scale' (whose values does not change relative to window size)
+          
+          //noise1, 2 & 3 are basically 3 identical 'grid systems' offset at 3 arbitrary locations in the 3D noisespace.
+          
+          float noise1 = noise(noise1Scale*(gridx + px + seed1), noise1Scale*(gridy + py + seed1), noise1Scale*(px + seed1));
+          float noise2 = noise(noise2Scale*(gridx + px + seed2), noise2Scale*(gridy + py + seed2), noise2Scale*(px + seed2));
+          float noise3 = noise(noise3Scale*(gridx + px + seed3), noise3Scale*(gridy + py + seed3), noise3Scale*(px + seed3));
+          
+          float rx = map(noise2,0,1,0,colOffset*ellipseSize);
+          //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
+          float ry = map(noise3,0,1,0.5,1.0);
+          //float fill_Hue = map(noise1, 0, 1, 0, 20);
+          float fill_Hue = map(generation, 0, generations, 240, 240);
+          //float fill_Sat = map(noise3, 0, 1, 128,255);
+          //float fill_Sat = 0;
+          float fill_Sat = map(generation, 0, generations, 255, 0);
+          //float fill_Bri = map(noise2, 0, 1, 128,255);
+          float fill_Bri = map(generation, 0, generations, 255, 255);
+          //bkg_Bri = map(generation, 0, generations, 255, 128);
+          //bkg_Sat = map(generation, 0, generations, 160, 255);
+          
+          //draw the thing
+          pushMatrix();
+          translate(gridx, gridy); // Go to the grid location
+          rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
+          fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+          //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
+          //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+    
+          //fill(fill_Bri);
+          //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
+          //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
+          //if (stripeStep >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
+          
+          // TO DO: Could use bkg as the alternative stripe color???
+          //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
+          //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
+          //stroke(0,64);
+          //stroke(255,32);
+          //noFill();
+          // These shapes require that ry is a value in a similar range to rx
+          //ellipse(0,0,rx,ry); // Draw an ellipse
+          //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5)); // Draw a triangle
+          //rect(0,0,rx,ry); // Draw a rectangle
+          
+          
+          // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
+          //ellipse(0,0,rx,rx*ry); // Draw an ellipse
+          //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+          rect(0,0,rx,rx*ry); // Draw a rectangle
+          
+          popMatrix();
+        } //Closes 'rows' loop
+      } //Closes 'columns' loop
+      
+      //Do this after you have drawn all the elements in the cartesian grid:
+      if (makeGenerationMPEG) {videoExport.saveFrame();}
+      // Save frames for the purpose of 
+      // making an animated GIF loop, 
+      // e.g. with http://gifmaker.me/
+      
+      // To save a frame for every draw cycle:
+      if (saveDrawFramePNG) {saveFrame( "save/"+ nf(generation, 3)+ ".jpg");}
+      // END OF GENERATION CYCLE CODE
+      println("Generation " + generation + " has ended.");
+    }
+    // Put stuff to do after a generation is completed here:
+    if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled. Could also now be achieved with generations = 1? TEST!
+    if (makeEpochMPEG) {videoExport.saveFrame();}
+    background(bkg_Hue, bkg_Sat, bkg_Bri);
+    //background(bkg_Bri); //Refresh the background
+    else {
+      
+      
+      
+      epochCount ++;  // If runOnce is disabled, increase the cycle counter and continue
+      if (epoch == 0) {}
+    }
+    // END OF EPOCH CYCLE CODE
+    shutdown();
   }
+  
 } //Closes draw() loop
 
 void keyPressed() {
   if (key == 'q') {
-    if (makeGeneratuionMPEG || makeEpochMPEG) {videoExport.endMovie();}
+    if (makeGenerationMPEG || makeEpochMPEG) {videoExport.endMovie();}
     exit();
   }
 }
@@ -346,7 +376,7 @@ void shutdown() {
   println("Saving .log file: " + logFileName);
   
   // If I'm in PNG-mode, export a .png of how the image looked when it was terminated
-  if (savePNG) {
+  if (saveGenerationPNG) {
     saveFrame(pngFile);
     println("Saving .png file: " + pngFile);
   }
@@ -358,7 +388,7 @@ void shutdown() {
   }
   
   // If I'm in MPEG mode, complete & close the file
-  if (makeGeneratuionMPEG || makeEpochMPEG) {
+  if (makeGenerationMPEG || makeEpochMPEG) {
     println("Saving .mp4 file: " + mp4File);
     videoExport.endMovie();}
   exit();
