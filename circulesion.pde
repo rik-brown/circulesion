@@ -3,23 +3,26 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
-// TO DO: Implement a 'stepped' mode which does not render every frame, but jumps in configurable steps (2018-01-04)
-//      a) This is partly adressed by assigning the variable 'loopFrames' with a low value. Every frame is rendered, but there are fewer (& bigger steps between)
+// BUG!!! :-( Since frameCount starts at 1, the first value of currentStep will be 1, but it's lowest value is 0 
+//            So the map() range is from 0 to (max-1). This means the first iteration (which misses the 0) will miss one layer of drawn elements
+//            This has not been very noticeable when there are many layers and high overlap, but it IS very visible with e.g. 4 layers and low overlap.
+//            I think I need to replace this with for-next loops, or use something other than framecount which can be reset directly (not using modulo)
+//            Maybe it's just as well to leave it at this and 'fix' it when I refactor and go over to Objects
+
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
-// TO DO: Add start-time & end-time to the logfile, to get an idea of expected rendertime for longer videos.
-//      a) This requires the logfile to be kept open until the end, which has some disadvantages
-//      b) Q?: If logfile is reopened, is new text appended to the end?
-// TO DO: Use variables for bkgCol throughout (remove local hardcodes)
 // TO DO: Make a variable for selecting render type (primitive: rect, ellipse or triangle) (2018-01-16)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
+
 // TO DO: Make a list of rendering methdods (gradients, stripes, transparent strokes etc.)
 //      1) Brightness from dark to light
 //      2) Saturation from high to low (colour to white)
 //      3) Hue from warm to cold
+
 // TO DO: Make a list of variables that can be modulated through the Epoch, noting which ones I have tried & result
 //      1) noiseRadius  1/6  Just seemed to modulate size, not very exciting 
 //      2) noiseFactor  4/6  Best when increasing as sq() from very high value to a low-end/high variation
 //      3) noiseOctaves 1/6  Is an integer, so changes in steps rather than smooth transition 
+
 // TO TRY: Add a higher level pop/push matrix & rotate the entire grid through TWO_PI for each timelapse cycle
 
 // Observation: When making video timelapse, the pathway to construct each each frame need not be circular! 
@@ -47,14 +50,14 @@ int videoQuality = 75; // 100 = highest quality (lossless), 70 = default
 int videoFPS = 30; // Framerate for video playback
 
 // Loop Control variables
-int loopFrames = 1000;   // Total number of drawcycles (frames) in the timelapse loop
-int maxCycles = 180;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int loopFrames = 4;   // Total number of drawcycles (frames) in the timelapse loop
+int maxCycles = 360;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 int cycleCount = 1;     //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
-float noiseFactorMin = 3.8; 
-float noiseFactorMax = 3.8;
+float noiseFactorMin = 4; 
+float noiseFactorMax = 4;
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
@@ -70,18 +73,18 @@ float seed2 =0;  // One seed per noisespace
 float seed3 =0;
 int noiseSeed = 0;
 int noiseOctaves; // Integer in the range 3-8? Default: 7
-int noiseOctavesMin = 9;
-int noiseOctavesMax = 9;
+int noiseOctavesMin = 4;
+int noiseOctavesMax = 4;
 float noiseFalloff; // Floar in the range 0.0 - 1.0 Default: 0.5 NOTE: Values >0.5 may give noise() value >1.0
-float noiseFalloffMin = 0.5;
-float noiseFalloffMax = 0.5;
+float noiseFalloffMin = 0.2;
+float noiseFalloffMax = 0.6;
 
 
 // Cartesian Grid variables: 
-int columns = 9;
+int columns = 5;
 int rows, h, w;
 float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 5.0; // last 2
+float ellipseMaxSize = 3.0; // last 2
 float stripeWidthFactor = 0.1;
 float stripeWidth = loopFrames * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
@@ -92,33 +95,32 @@ float bkg_Bri;
 
 // Output configuration toggles:
 boolean makePDF = false;
-boolean savePNG = true;
+boolean savePNG = false;
 boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per loopFrames sequence)
-boolean makeMPEG_2 = false;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
+boolean makeMPEG_2 = true;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
 boolean runOnce = true;     // Stop after one loopCycle (one 'timelapse' sequence)
 
 PrintWriter logFile;    // Object for writing to the settings logfile
 
 void setup() {
   //fullScreen();
-  size(10000, 10000);
+  //size(10000, 10000);
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
-  //size(1024, 1024);
+  size(1024, 1024);
   //size(1000, 1000);
   //size(800, 800);
   //size(400,400);
   colorMode(HSB, 360, 255, 255, 255);
-  bkg_Hue = 0;
-  bkg_Sat = 255;
-  bkg_Bri = 255;
-  //background(0,255,255);
-  //background(0);
+  bkg_Hue = 240;
+  bkg_Sat = 64;
+  bkg_Bri = 0;
+  //background(bkg_Bri);
   background(bkg_Hue, bkg_Sat, bkg_Bri);
   noiseSeed(noiseSeed); //To make the noisespace identical each time (for repeatability) 
   noStroke();
-  //stroke(0);
+  stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   h = height;
@@ -155,7 +157,7 @@ void draw() {
     if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
     else {
       if (makeMPEG_2) {videoExport.saveFrame();}
-      //background(0); //Refresh the background
+      //background(bkg_Bri); //Refresh the background
       background(bkg_Hue, bkg_Sat, bkg_Bri);
       cycleCount ++;  // If runOnce is disabled, increase the cycle counter and continue
       if (cycleStep == 0) {shutdown();}
@@ -188,7 +190,7 @@ void draw() {
   noise3Scale = noise3Factor/(noiseFactor*w);
   
   //background(bkg_Hue, bkg_Sat, bkg_Bri);
-  //background(0);
+  //background(bkg_Bri);
   //background(bkg_Hue, 0, bkg_Bri);
    
   //float px = width*0.5 + radius * cos(t); 
@@ -262,19 +264,21 @@ void draw() {
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       float ry = map(noise3,0,1,0.5,1.0);
-      float fill_Hue = map(noise1, 0, 1, 0, 20);
+      //float fill_Hue = map(noise1, 0, 1, 0, 20);
+      float fill_Hue = map(currStep, 0, loopFrames, 240, 240);
       //float fill_Sat = map(noise3, 0, 1, 128,255);
-      float fill_Sat = map(currStep, 0, loopFrames, 255, 96);
+      //float fill_Sat = 0;
+      float fill_Sat = map(currStep, 0, loopFrames, 255, 0);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(currStep, 0, loopFrames, 32, 255);
-      bkg_Bri = map(currStep, 0, loopFrames, 255, 64);
-      bkg_Sat = map(currStep, 0, loopFrames, 128, 255);
+      float fill_Bri = map(currStep, 0, loopFrames, 255, 255);
+      //bkg_Bri = map(currStep, 0, loopFrames, 255, 128);
+      //bkg_Sat = map(currStep, 0, loopFrames, 160, 255);
       
       //draw the thing
       pushMatrix();
       translate(gridx, gridy); // Go to the grid location
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
-      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
 
@@ -285,7 +289,7 @@ void draw() {
       
       // TO DO: Could use bkg as the alternative stripe color???
       //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
-      if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
+      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
       //stroke(0,64);
       //stroke(255,32);
       //noFill();
@@ -297,8 +301,8 @@ void draw() {
       
       // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
       //ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
-      //rect(0,0,rx,rx*ry); // Draw a rectangle
+      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      rect(0,0,rx,rx*ry); // Draw a rectangle
       
       popMatrix();
     } //Closes 'rows' loop
