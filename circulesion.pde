@@ -50,9 +50,9 @@ int videoQuality = 75; // 100 = highest quality (lossless), 70 = default
 int videoFPS = 30; // Framerate for video playback
 
 // Loop Control variables
-int loopFrames = 4;   // Total number of drawcycles (frames) in the timelapse loop
-int maxCycles = 360;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
-int cycleCount = 1;     //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
+int generations = 4;   // Total number of drawcycles (frames) in the timelapse loop
+int epochs = 360;    //8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int epochCount = 1;     //The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
@@ -86,7 +86,7 @@ int rows, h, w;
 float colOffset, rowOffset, hwRatio;
 float ellipseMaxSize = 3.0; // last 2
 float stripeWidthFactor = 0.1;
-float stripeWidth = loopFrames * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
+float stripeWidth = generations * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
 
 // Colour variables:
 float bkg_Hue;
@@ -96,8 +96,8 @@ float bkg_Bri;
 // Output configuration toggles:
 boolean makePDF = false;
 boolean savePNG = false;
-boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per loopFrames sequence)
-boolean makeMPEG_2 = true;  // Enable video output for animation of a series of cycles (one frame per loopFrames cycle, one video per maxCycles sequence)
+boolean makeMPEG_1 = false; // Enable video output for animation of a single cycle (one frame per draw cycle, one video per generations sequence)
+boolean makeMPEG_2 = true;  // Enable video output for animation of a series of cycles (one frame per generations cycle, one video per epoch sequence)
 boolean runOnce = true;     // Stop after one loopCycle (one 'timelapse' sequence)
 
 PrintWriter logFile;    // Object for writing to the settings logfile
@@ -151,29 +151,29 @@ void setup() {
 }
 
 void draw() {
-  int currStep = frameCount%loopFrames; //frameCount always starts at 1, so the first time currStep=0 will be when frameCount = loopFrames (and each successive cycle)
-  int cycleStep = cycleCount%maxCycles; //cycleCount always starts at 1, so the first time cycleStep=0 will be when cycleCount = maxCycles (and each successive cycle)
-  if (currStep==0) {
+  int generation = frameCount%generations; //frameCount always starts at 1, so the first time generation=0 will be when frameCount = generations (and each successive cycle)
+  int epoch = epochCount%epochs; //epochCount always starts at 1, so the first time epoch=0 will be when epochCount = epochs (and each successive cycle)
+  if (generation==0) {
     if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
     else {
       if (makeMPEG_2) {videoExport.saveFrame();}
       //background(bkg_Bri); //Refresh the background
       background(bkg_Hue, bkg_Sat, bkg_Bri);
-      cycleCount ++;  // If runOnce is disabled, increase the cycle counter and continue
-      if (cycleStep == 0) {shutdown();}
+      epochCount ++;  // If runOnce is disabled, increase the cycle counter and continue
+      if (epoch == 0) {shutdown();}
     }
   }
-  float cycleStepAngle = PI + map(cycleStep, 0, maxCycles-1, 0, TWO_PI); // Angle will turn through a full circle throughout one cycleStep
-  float cycleStepSineWave = sin(cycleStepAngle); // Range: -1 to +1
-  float cycleStepCosWave = cos(cycleStepAngle); // Range: -1 to +1
-  float radius = radiusMedian * map(cycleStepSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by cycleStep
-  //float remainingSteps = loopFrames - currStep; //For stripes that are a % of remainingSteps in the loop
+  float epochAngle = PI + map(epoch, 0, epochs-1, 0, TWO_PI); // Angle will turn through a full circle throughout one epoch
+  float epochSineWave = sin(epochAngle); // Range: -1 to +1
+  float epochCosWave = cos(epochAngle); // Range: -1 to +1
+  float radius = radiusMedian * map(epochSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by epoch
+  //float remainingSteps = generations - generation; //For stripes that are a % of remainingSteps in the loop
   //stripeWidth = (remainingSteps * 0.3) + 10;
-  //stripeWidth = map(currStep, 0, loopFrames, loopFrames*0.25, loopFrames*0.1);
+  //stripeWidth = map(generation, 0, generations, generations*0.25, generations*0.1);
   float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
-  float stripeFactor = map(currStep, 0, loopFrames-1, 0.5, 0.5);
-  float ellipseSize = map(currStep, 0, loopFrames-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
-  float t = map(currStep, 0, loopFrames, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
+  float stripeFactor = map(generation, 0, generations-1, 0.5, 0.5);
+  float ellipseSize = map(generation, 0, generations-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
+  float t = map(generation, 0, generations, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
   float sineWave = sin(t);
   float cosWave = cos(t);
   //bkg_Hue = 0;
@@ -181,10 +181,10 @@ void draw() {
   //bkg_Bri = 255;
   //bkg_Hue = map(sineWave, -1, 1, 240, 200);
   //bkg_Bri = map(sineWave, -1, 1, 100, 255);
-  noiseOctaves = int(map(cycleStepCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
-  noiseFalloff = map(cycleStepCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
+  noiseOctaves = int(map(epochCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
+  noiseFalloff = map(epochCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
   noiseDetail(noiseOctaves, noiseFalloff);
-  noiseFactor = sq(map(cycleStepCosWave, -1, 1, noiseFactorMax, noiseFactorMin));
+  noiseFactor = sq(map(epochCosWave, -1, 1, noiseFactorMax, noiseFactorMin));
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
   noise3Scale = noise3Factor/(noiseFactor*w);
@@ -198,7 +198,7 @@ void draw() {
   //float tz = t; // This angle will be used to move through the z axis
   //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
   
-  println("Frame: " + currStep + " cycleStep: " + cycleStep + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
+  println("Frame: " + generation + " epoch: " + epoch + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
   
   //loop through all the elements in the cartesian grid
   for(int col = 0; col<columns; col++) {
@@ -265,14 +265,14 @@ void draw() {
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
       float ry = map(noise3,0,1,0.5,1.0);
       //float fill_Hue = map(noise1, 0, 1, 0, 20);
-      float fill_Hue = map(currStep, 0, loopFrames, 240, 240);
+      float fill_Hue = map(generation, 0, generations, 240, 240);
       //float fill_Sat = map(noise3, 0, 1, 128,255);
       //float fill_Sat = 0;
-      float fill_Sat = map(currStep, 0, loopFrames, 255, 0);
+      float fill_Sat = map(generation, 0, generations, 255, 0);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(currStep, 0, loopFrames, 255, 255);
-      //bkg_Bri = map(currStep, 0, loopFrames, 255, 128);
-      //bkg_Sat = map(currStep, 0, loopFrames, 160, 255);
+      float fill_Bri = map(generation, 0, generations, 255, 255);
+      //bkg_Bri = map(generation, 0, generations, 255, 128);
+      //bkg_Sat = map(generation, 0, generations, 160, 255);
       
       //draw the thing
       pushMatrix();
@@ -314,8 +314,8 @@ void draw() {
   // making an animated GIF loop, 
   // e.g. with http://gifmaker.me/
   
-  if (frameCount < loopFrames) {
-    //saveFrame( "save/"+ nf(currStep, 3)+ ".jpg"); //Uncomment this if you want to save every frame drawn (consider making a toggle for this!)
+  if (frameCount < generations) {
+    //saveFrame( "save/"+ nf(generation, 3)+ ".jpg"); //Uncomment this if you want to save every frame drawn (consider making a toggle for this!)
   }
 } //Closes draw() loop
 
@@ -387,8 +387,8 @@ void logStart() {
   logFile.println("height = " + h);
   logFile.println("videoQuality = " + videoQuality);
   logFile.println("videoFPS = " + videoFPS);
-  logFile.println("loopFrames = " + loopFrames);
-  logFile.println("maxCycles = " + maxCycles);
+  logFile.println("generations = " + generations);
+  logFile.println("epochs = " + epochs);
   logFile.println("columns = " + columns);
   logFile.println("rows = " + rows);
   logFile.println("ellipseMaxSize = " + ellipseMaxSize);
