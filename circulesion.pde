@@ -9,6 +9,9 @@
 //            I think I need to replace this with for-next loops, or use something other than framecount which can be reset directly (not using modulo)
 //            Maybe it's just as well to leave it at this and 'fix' it when I refactor and go over to Objects
 
+// FIX IS FLAWED - Too many For/loops in Draw? No, not that, but the simple fact is: the screen is not updated until all instructions in draw() have been completed
+//  So the solution must at least pass through draw once, update the screen, THEN check to see if it is done. Maybe for/until loop is not the most suitable method?
+
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
 // TO DO: Make a variable for selecting render type (primitive: rect, ellipse or triangle) (2018-01-16)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
@@ -33,9 +36,10 @@ import processing.pdf.*; // For exporting output as a .pdf file
 VideoExport videoExport;
 
 // File Management variables:
-int batch = 3;
+int batch = 4;
 String applicationName = "circulesion";
 String logFileName;   // Name & location of logfile (.log)
+String debugFileName;   // Name & location of logfile (.log)
 String pngFile;       // Name & location of saved output (.png final image)
 String pdfFile;       // Name & location of saved output (.pdf file)
 String framedumpPath; // Name & location of saved output (individual frames) NOT IN USE
@@ -46,8 +50,9 @@ int videoQuality = 75; // 100 = highest quality (lossless), 70 = default
 int videoFPS = 30;     // Framerate for video playback
 
 // Loop Control variables
-int generations = 4;   // Total number of drawcycles (frames) in a generation (timelapse loop)
-int epochs = 360;      // 8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int generation, epoch;
+int generations = 500;   // Total number of drawcycles (frames) in a generation (timelapse loop)
+int epochs = 1;      // 8 sec. The number of timelapse loops (frames) in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 //int epochCount = 1;    // OBSOLETE!! The equivalent of frameCount for major cycles. First cycle # = 1 (just like first frame # = 1)
 
 // Noise variables:
@@ -92,20 +97,21 @@ float bkg_Bri;
 // Output configuration toggles:
 boolean makePDF = false;
 boolean saveDrawFramePNG = false;
-boolean saveGenerationPNG = false;
+boolean saveGenerationPNG = true;
 boolean makeGenerationMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
-boolean makeEpochMPEG = true;        // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
-boolean runOnce = true;              // Stop after one generation cycle (one 'timelapse' sequence)
+boolean makeEpochMPEG = false;        // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
+boolean runOnce = false;              // Stop after one generation cycle (one 'timelapse' sequence)
 
 PrintWriter logFile;    // Object for writing to the settings logfile
+PrintWriter debugFile;    // Object for writing to the deubug logfile
 
 void setup() {
   //fullScreen();
-  //size(10000, 10000);
+  size(10000, 10000);
   //size(6000, 6000);
   //size(4000, 4000);
   //size(2000, 2000);
-  size(1024, 1024);
+  //size(1024, 1024);
   //size(1000, 1000);
   //size(800, 800);
   //size(400,400);
@@ -117,7 +123,7 @@ void setup() {
   background(bkg_Hue, bkg_Sat, bkg_Bri);
   noiseSeed(noiseSeed); //To make the noisespace identical each time (for repeatability) 
   noStroke();
-  stroke(0);
+  //stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   h = height;
@@ -149,26 +155,19 @@ void setup() {
 
 void draw() {
   //int generation = frameCount%generations; // OBSOLETE!! frameCount always starts at 1, so the first time generation=0 will be when frameCount = generations (and each successive cycle)
-  // int epoch = epochCount%epochs; // OBSOLETE! epochCount always starts at 1, so the first time epoch=0 will be when epochCount = epochs (and each successive cycle)
-  if (generation==0) {
-    if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled
-    else {
-      if (makeEpochMPEG) {videoExport.saveFrame();}
-      //background(bkg_Bri); //Refresh the background
-      background(bkg_Hue, bkg_Sat, bkg_Bri);
-      epochCount ++;  // If runOnce is disabled, increase the cycle counter and continue
-      if (epoch == 0) {shutdown();}
-    }
-  }
+  //int epoch = epochCount%epochs;           // OBSOLETE! epochCount always starts at 1, so the first time epoch=0 will be when epochCount = epochs (and each successive cycle)
   
   // Epoch loop:
-  for(int epoch = 1; epoch=epochs; epoch++) {
+  for(epoch = 1; epoch<=epochs; epoch++) {
+    debugFile.println("Epoch: " + epoch + " of " + epochs);
       
     // Generation loop:
-    for(int generation = 1; generation=generations; generation++) {
+    for(generation = 1; generation<=generations; generation++) {
+      debugFile.println("Generation: " + generation + " of " + generations);
       
       // Everything after this (I think) is inside the epoch loop
-      float epochAngle = PI + map(epoch, 0, epochs-1, 0, TWO_PI); // Angle will turn through a full circle throughout one epoch
+      //float epochAngle = PI + map(epoch, 1, epochs, 0, TWO_PI); // Angle will turn through a full circle throughout one epoch
+      float epochAngle = PI + (epoch * TWO_PI/epochs); // Angle will turn through a full circle throughout one epoch
       float epochSineWave = sin(epochAngle); // Range: -1 to +1
       float epochCosWave = cos(epochAngle); // Range: -1 to +1
       float radius = radiusMedian * map(epochSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by epoch
@@ -178,10 +177,10 @@ void draw() {
       //float remainingSteps = generations - generation; //For stripes that are a % of remainingSteps in the loop
       //stripeWidth = (remainingSteps * 0.3) + 10;
       //stripeWidth = map(generation, 0, generations, generations*0.25, generations*0.1);
-      float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
-      float stripeFactor = map(generation, 0, generations-1, 0.5, 0.5);
-      float ellipseSize = map(generation, 0, generations-1, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
-      float t = map(generation, 0, generations, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
+      //float stripeStep = frameCount%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
+      float stripeFactor = map(generation, 1, generations, 0.5, 0.5);
+      float ellipseSize = map(generation, 1, generations, ellipseMaxSize, 0); // The scaling factor for ellipseSize  from max to zero as the minor loop runs
+      float t = map(generation, 1, generations, 0, TWO_PI); // The angle for various cyclic calculations increases from zero to 2PI as the minor loop runs
       float sineWave = sin(t);
       float cosWave = cos(t);
       //bkg_Hue = 0;
@@ -206,11 +205,13 @@ void draw() {
       //float tz = t; // This angle will be used to move through the z axis
       //float pz = width*0.5 + radius * cos(tz); // Offset is arbitrary but must stay positive
       
-      println("Frame: " + generation + " epoch: " + epoch + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
+      debugFile.println("Frame: " + frameCount + " Generation: " + generation + " Epoch: " + epoch + " noiseFactor: " + noiseFactor + " noiseOctaves: " + noiseOctaves + " noiseFalloff: " + noiseFalloff);
       
       //loop through all the elements in the cartesian grid
       for(int col = 0; col<columns; col++) {
+        debugFile.println("Col: " + (col+1) + " of " + columns);
         for(int row = 0; row<rows; row++) {
+          debugFile.println("Row: " + (row+1) + " of " + rows);
           // This is where the code for each element in the grid goes
           // All the calculations which are specific to the individual element
           
@@ -273,12 +274,12 @@ void draw() {
           //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
           float ry = map(noise3,0,1,0.5,1.0);
           //float fill_Hue = map(noise1, 0, 1, 0, 20);
-          float fill_Hue = map(generation, 0, generations, 240, 240);
+          float fill_Hue = map(generation, 1, generations, 240, 240);
           //float fill_Sat = map(noise3, 0, 1, 128,255);
           //float fill_Sat = 0;
-          float fill_Sat = map(generation, 0, generations, 255, 0);
+          float fill_Sat = map(generation, 1, generations, 255, 0);
           //float fill_Bri = map(noise2, 0, 1, 128,255);
-          float fill_Bri = map(generation, 0, generations, 255, 255);
+          float fill_Bri = map(generation, 1, generations, 255, 255);
           //bkg_Bri = map(generation, 0, generations, 255, 128);
           //bkg_Sat = map(generation, 0, generations, 160, 255);
           
@@ -288,7 +289,7 @@ void draw() {
           rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
           fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
           //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
-          //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+          fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
     
           //fill(fill_Bri);
           //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
@@ -301,6 +302,9 @@ void draw() {
           //stroke(0,64);
           //stroke(255,32);
           //noFill();
+          
+          
+          
           // These shapes require that ry is a value in a similar range to rx
           //ellipse(0,0,rx,ry); // Draw an ellipse
           //triangle(0, -ry, (rx*0.866), (ry*0.5) ,-(rx*0.866), (ry*0.5)); // Draw a triangle
@@ -309,8 +313,12 @@ void draw() {
           
           // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
           //ellipse(0,0,rx,rx*ry); // Draw an ellipse
-          //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
-          rect(0,0,rx,rx*ry); // Draw a rectangle
+          triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+          debugFile.println("Drawing a thing at x:" + gridx + " y:" + gridy + " with rx=" + rx + " ry=" + ry + " & noise1=" + noise1 + " noise2=" + noise2 + " noise3=" + noise3);
+          println("Drawing a thing at x:" + gridx + " y:" + gridy + " with rx=" + rx + " ry=" + ry + " & noise1=" + noise1 + " noise2=" + noise2 + " noise3=" + noise3);
+          //fill(255);
+          //ellipse(0,0,10,10); // For debugging!
+          //rect(0,0,rx,rx*ry); // Draw a rectangle
           
           popMatrix();
         } //Closes 'rows' loop
@@ -325,24 +333,19 @@ void draw() {
       // To save a frame for every draw cycle:
       if (saveDrawFramePNG) {saveFrame( "save/"+ nf(generation, 3)+ ".jpg");}
       // END OF GENERATION CYCLE CODE
-      println("Generation " + generation + " has ended.");
+      debugFile.println("Generation " + generation + " has ended.");
     }
+    
     // Put stuff to do after a generation is completed here:
-    if (runOnce) {shutdown();} // Exit criteria from the draw loop when runOnce is enabled. Could also now be achieved with generations = 1? TEST!
+    if (runOnce) {println("Exiting due to runOnce=TRUE"); shutdown();} // Exit criteria from the draw loop when runOnce is enabled. Could also now be achieved with generations = 1? TEST!
     if (makeEpochMPEG) {videoExport.saveFrame();}
-    background(bkg_Hue, bkg_Sat, bkg_Bri);
+    //background(bkg_Hue, bkg_Sat, bkg_Bri);
     //background(bkg_Bri); //Refresh the background
-    else {
-      
-      
-      
-      epochCount ++;  // If runOnce is disabled, increase the cycle counter and continue
-      if (epoch == 0) {}
-    }
     // END OF EPOCH CYCLE CODE
-    shutdown();
+    debugFile.println("Epoch " + epoch + " has ended.");
+    //shutdown(); // Always exit at the end of an epoch.
   }
-  
+   // Maybe shutdown needs to be here?
 } //Closes draw() loop
 
 void keyPressed() {
@@ -364,6 +367,8 @@ void getReady() {
   logFileName = pathName + "settings/" + applicationName + "-" + batchName + "-" + timestamp + ".log";
   logFile = createWriter(logFileName); //Open a new settings logfile
   logStart();
+  debugFileName = pathName + "debug/" + applicationName + "-" + batchName + "-" + timestamp + "debug.log";
+  debugFile = createWriter(debugFileName); //Open a new debug logfile
   if (makePDF) {
     runOnce = true;
     beginRecord(PDF, pdfFile);
@@ -372,8 +377,7 @@ void getReady() {
 
 // saves an image of the final frame, closes any pdf & mpeg files and exits
 void shutdown() {
-  // Close the logfile
-  println("Saving .log file: " + logFileName);
+  debugEnd();
   
   // If I'm in PNG-mode, export a .png of how the image looked when it was terminated
   if (saveGenerationPNG) {
@@ -417,6 +421,12 @@ void logStart() {
   logFile.println("epochs = " + epochs);
   logFile.println("columns = " + columns);
   logFile.println("rows = " + rows);
+  logFile.println("makePDF = " + makePDF);
+  logFile.println("saveDrawFramePNG = " + saveDrawFramePNG);
+  logFile.println("saveGenerationPNG = " + saveGenerationPNG);
+  logFile.println("makeGenerationMPEG = " + makeGenerationMPEG);
+  logFile.println("makeEpochMPEG = " + makeEpochMPEG);
+  logFile.println("runOnce = " + runOnce); 
   logFile.println("ellipseMaxSize = " + ellipseMaxSize);
   logFile.println("noiseSeed = " + noiseSeed);
   logFile.println("seed1 = " + seed1);
@@ -442,4 +452,11 @@ void logStart() {
 void logEnd() {
   logFile.flush();
   logFile.close(); //Flush and close the settings file
+  println("Saved .log file: " + logFileName);
+}
+
+void debugEnd() {
+  debugFile.flush();
+  debugFile.close(); //Flush and close the settings file
+  println("Saved debug.log file: " + debugFileName);
 }
