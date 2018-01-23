@@ -3,6 +3,8 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
+// 2018-01-23 22:36 Epoch Mpeg shows no change from first to last frame :-(
+
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
 // TO DO: Make a variable for selecting render type (primitive: rect, ellipse or triangle) (2018-01-16)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
@@ -15,7 +17,12 @@
 // TO DO: Make a list of variables that can be modulated through the Epoch, noting which ones I have tried & result
 //      1) noiseRadius  1/6  Just seemed to modulate size, not very exciting 
 //      2) noiseFactor  4/6  Best when increasing as sq() from very high value to a low-end/high variation
-//      3) noiseOctaves 1/6  Is an integer, so changes in steps rather than smooth transition 
+//      3) noiseOctaves 1/6  Is an integer, so changes in steps rather than smooth transition
+//      4) noiseFallOff
+//      5) noiseSeed
+//      6) ellipseMaxSize
+//      7) generations
+
 
 // TO TRY: Add a higher level pop/push matrix & rotate the entire grid through TWO_PI for each timelapse cycle
 
@@ -42,14 +49,14 @@ int videoFPS = 30;     // Framerate for video playback
 
 // Loop Control variables
 int generation = 1;    // Generation counter starts at 1
-int generations = 500; // Total number of drawcycles (frames) in a generation (timelapse loop)
+int generations = 1000; // Total number of drawcycles (frames) in a generation (timelapse loop)
 int epoch = 1;         // Epoch counter starts at 1
-int epochs = 1;      // The number of epoch frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int epochs = 300;      // The number of epoch frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
-float noiseFactorMin = 3; 
-float noiseFactorMax = 6;
+float noiseFactorMin = 2.5; 
+float noiseFactorMax = 5;
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
@@ -89,9 +96,9 @@ float bkg_Bri;
 // Output configuration toggles:
 boolean makeGenerationPNG = false;  // Use with care! Will save one image per draw() frame!
 boolean makePDF = false;            // Enable .pdf 'timelapse' output of all the generations in a single epoch
-boolean makeEpochPNG = true;       // Enable .png 'timelapse' output of all the generations in a single epoch
+boolean makeEpochPNG = false;       // Enable .png 'timelapse' output of all the generations in a single epoch
 boolean makeGenerationMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
-boolean makeEpochMPEG = false;       // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
+boolean makeEpochMPEG = true;       // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
 boolean debugMode = false;          // Enable logging to debug file
 
 PrintWriter logFile;   // Object for writing to the settings logfile
@@ -115,7 +122,7 @@ void setup() {
   background(bkg_Hue, bkg_Sat, bkg_Bri);
   noiseSeed(noiseSeed); //To make the noisespace identical each time (for repeatability) 
   //noStroke();
-  stroke(0);
+  //stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   h = height;
@@ -131,8 +138,8 @@ void setup() {
   colOffset = w/(columns*2);
   rowOffset = h/(rows*2);
   getReady();
-  if (makeGenerationMPEG) {makeEpochMPEG = false; epochs = 1;}
-  if (makeEpochMPEG) {makeGenerationMPEG = false;}
+  if (makeGenerationMPEG) {makeEpochMPEG = false; epochs = 1;} // When making a generation video, stop after one epoch
+  if (makeEpochMPEG) {makeGenerationMPEG = false;}             // Only one type of video file is possible at a time
   if (makeGenerationMPEG || makeEpochMPEG) {
     videoExport = new VideoExport(this, mp4File);
     videoExport.setQuality(videoQuality, 128);
@@ -153,13 +160,14 @@ void draw() {
     generation = 1; // Reset the generation counter for the next epoch
     if (makeEpochMPEG) {
         videoExport.saveFrame(); // Add an image of the generation frame to the generation video file:
-        //background(bkg_Hue, bkg_Sat, bkg_Bri); //Refresh the background
+        background(bkg_Hue, bkg_Sat, bkg_Bri); //Refresh the background
         //background(bkg_Bri);
       }
     if (epoch > epochs) {
       // The sketch has reached the end of it's intended lifecycle
       // Time to close up shop...
-      println("The last epoch has ended. Goodbye!"); shutdown();
+      println("The last epoch has ended. Goodbye!");
+      shutdown();
     }
   }
   
@@ -170,6 +178,7 @@ void draw() {
   
   // 'Driver' variables modulated over a succession of epochs:
   float epochAngle = PI + (epoch/epochs * TWO_PI); // Angle will turn through a full circle throughout one epoch
+  // NOTE: Can't use map() as both epoch & epochs will sometimes = 1
   float epochSineWave = sin(epochAngle); // Range: -1 to +1
   float epochCosWave = cos(epochAngle); // Range: -1 to +1
   float radius = radiusMedian * map(epochSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by epoch
@@ -191,7 +200,8 @@ void draw() {
   noiseFalloff = map(epochCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
   noiseDetail(noiseOctaves, noiseFalloff);
   
-  noiseFactor = sq(map(epochCosWave, -1, 1, noiseFactorMax, noiseFactorMin));
+  //noiseFactor = sq(map(epochCosWave, -1, 1, noiseFactorMax, noiseFactorMin));
+  noiseFactor = sq(map(cosWave, -1, 1, noiseFactorMax, noiseFactorMin));
   noise1Scale = noise1Factor/(noiseFactor*w);
   noise2Scale = noise2Factor/(noiseFactor*w);
   noise3Scale = noise3Factor/(noiseFactor*w);
@@ -262,6 +272,10 @@ void draw() {
       
       //noise1, 2 & 3 are basically 3 identical 'grid systems' offset at 3 arbitrary locations in the 3D noisespace.
       
+      seed1 = map(epochCosWave, -1, 1, 0, 1);
+      seed2 = map(epochCosWave, -1, 1, 0, 2);
+      seed3 = map(epochCosWave, -1, 1, 0, 3);
+      
       float noise1 = noise(noise1Scale*(gridx + px + seed1), noise1Scale*(gridy + py + seed1), noise1Scale*(px + seed1));
       float noise2 = noise(noise2Scale*(gridx + px + seed2), noise2Scale*(gridy + py + seed2), noise2Scale*(px + seed2));
       float noise3 = noise(noise3Scale*(gridx + px + seed3), noise3Scale*(gridy + py + seed3), noise3Scale*(px + seed3));
@@ -284,11 +298,12 @@ void draw() {
       translate(gridx, gridy); // Go to the grid location
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
       
-      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
-      fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      stroke(fill_Hue, fill_Sat, fill_Bri, 8); // Set the stroke color
       //fill(fill_Bri);
-      //noFill();
+      noFill();
       
       //stroke(0,64);
       //stroke(255,32);
@@ -308,8 +323,8 @@ void draw() {
       
       // These shapes requires that ry is a scaling factor (e.g. in range 0.5 - 1.0)
       //ellipse(0,0,rx,rx*ry); // Draw an ellipse
-      //triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
-      rect(0,0,rx,rx*ry); // Draw a rectangle  
+      triangle(0, -rx*ry, (rx*0.866), (rx*ry*0.5) ,-(rx*0.866), (rx*ry*0.5)); // Draw a triangle
+      //rect(0,0,rx,rx*ry); // Draw a rectangle  
       //if (debugMode) {debugFile.println("Drawing a thing at x:" + gridx + " y:" + gridy + " with rx=" + rx + " ry=" + ry + " & noise1=" + noise1 + " noise2=" + noise2 + " noise3=" + noise3);}
       //println("Drawing a thing at x:" + gridx + " y:" + gridy + " with rx=" + rx + " ry=" + ry + " & noise1=" + noise1 + " noise2=" + noise2 + " noise3=" + noise3);
       
