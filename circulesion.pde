@@ -3,11 +3,17 @@
 // "Drawing from noise, and then making animated loopy GIFs from there" by Etienne Jacob (@n_disorder)
 // https://necessarydisorder.wordpress.com/2017/11/15/drawing-from-noise-and-then-making-animated-loopy-gifs-from-there/
 
-// 2018-01-23 22:36 Epoch Mpeg shows no change from first to last frame :-(
+// 2018-01-27 GOAL: Generation is linear, epoch is circular
 
 // TO DO: Try using RGB mode to make gradients from one hue to another, instead of light/dark etc. (2018-01-04)
 // TO DO: Make a variable for selecting render type (primitive: rect, ellipse or triangle) (2018-01-16)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
+// TO DO: Consider moving epoch-modulated values so they are only recalculated when epoch nr. changes (behind (if generation>generations){})
+// TO DO: Stripes
+//      1) Repair by introducing a basic 'stripe countdown'
+//      2) Find a smart way of modulating the stripe width throughout the epoch
+//          StripeWidth is the maximum width
+//          StripeCounter is the countdown (framecounter reset to StripeWidth for each stripe-cycle)
 
 // TO DO: Make a list of rendering methdods (gradients, stripes, transparent strokes etc.)
 //      1) Brightness from dark to light
@@ -26,7 +32,8 @@
 
 // TO TRY: Add a higher level pop/push matrix & rotate the entire grid through TWO_PI for each timelapse cycle
 
-// Observation: When making video timelapse, the pathway to construct each each frame need not be circular! 
+// OBSERVATION: When making video timelapse, the pathway to construct each each frame need not be circular!
+// OBSERVATION: If seed1, 2 & 3 are equal, noise1, 2 & 3 will also be the same when x = y
 
 import com.hamoid.*;     // For converting frames to a .mp4 video file 
 import processing.pdf.*; // For exporting output as a .pdf file
@@ -49,9 +56,9 @@ int videoFPS = 30;     // Framerate for video playback
 
 // Loop Control variables
 int generation = 1;    // Generation counter starts at 1
-int generations = 1000; // Total number of drawcycles (frames) in a generation (timelapse loop)
-int epoch = 1;         // Epoch counter starts at 1
-int epochs = 300;      // The number of epoch frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+int generations = 750; // Total number of drawcycles (frames) in a generation (timelapse loop)
+float epoch = 1;         // Epoch counter starts at 1
+float epochs = 300;      // The number of epoch frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
@@ -79,14 +86,18 @@ float noiseFalloff; // Float in the range 0.0 - 1.0 Default: 0.5 NOTE: Values >0
 float noiseFalloffMin = 0.5;
 float noiseFalloffMax = 0.5;
 
+// Generator variables
+float epochCosWave, epochSineWave;
 
 // Cartesian Grid variables: 
 int columns = 3;
 int rows, h, w;
 float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 5.0;
+float ellipseMaxSize = 6.0;
 float stripeWidthFactor = 0.1;
-float stripeWidth = generations * stripeWidthFactor; // Number of frames for a 'stripe pair' of colour 1 & colour 2
+//int stripeWidth = int(generations * stripeWidthFactor); // Number of frames for a 'stripe pair' of colour 1 & colour 2
+int stripeWidth = 20;
+int stripeCounter = 0;
 
 // Colour variables:
 float bkg_Hue;
@@ -96,7 +107,7 @@ float bkg_Bri;
 // Output configuration toggles:
 boolean makeGenerationPNG = false;  // Use with care! Will save one image per draw() frame!
 boolean makePDF = false;            // Enable .pdf 'timelapse' output of all the generations in a single epoch
-boolean makeEpochPNG = false;       // Enable .png 'timelapse' output of all the generations in a single epoch
+boolean makeEpochPNG = true;       // Enable .png 'timelapse' output of all the generations in a single epoch
 boolean makeGenerationMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
 boolean makeEpochMPEG = true;       // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
 boolean debugMode = false;          // Enable logging to debug file
@@ -121,7 +132,7 @@ void setup() {
   //background(bkg_Bri);
   background(bkg_Hue, bkg_Sat, bkg_Bri);
   noiseSeed(noiseSeed); //To make the noisespace identical each time (for repeatability) 
-  //noStroke();
+  noStroke();
   //stroke(0);
   ellipseMode(RADIUS);
   rectMode(RADIUS);
@@ -153,17 +164,18 @@ void setup() {
 void draw() {
 
   // What to do when an epoch is over? (when all the generations in the epoch have been completed)
-  if (generation > generations) {
+  if (generation == generations) {
     if (debugMode) {debugFile.println("Epoch " + epoch + " has ended.");}
     println("Epoch " + epoch + " has ended.");
     epoch++; // An epoch has ended, increase the counter
     generation = 1; // Reset the generation counter for the next epoch
+    stripeCounter = stripeWidth; // Reset the stripeCounter for the next epoch 
     if (makeEpochMPEG) {
         videoExport.saveFrame(); // Add an image of the generation frame to the generation video file:
         background(bkg_Hue, bkg_Sat, bkg_Bri); //Refresh the background
         //background(bkg_Bri);
       }
-    if (epoch > epochs) {
+    if (epoch >= epochs) {
       // The sketch has reached the end of it's intended lifecycle
       // Time to close up shop...
       println("The last epoch has ended. Goodbye!");
@@ -176,11 +188,19 @@ void draw() {
     debugFile.println("Generation: " + generation + " of " + generations);
   }
   
+  if (stripeCounter <= 0) {
+    // The stripe has been completed so reset the counter & start the next one
+    stripeCounter = stripeWidth;
+  
+  
+  }
+  
   // 'Driver' variables modulated over a succession of epochs:
+  //println("epoch=" + epoch + " epochs=" + epochs + "(epoch/epochs * TWO_PI)=" + (epoch/epochs * TWO_PI) );
   float epochAngle = PI + (epoch/epochs * TWO_PI); // Angle will turn through a full circle throughout one epoch
   // NOTE: Can't use map() as both epoch & epochs will sometimes = 1
-  float epochSineWave = sin(epochAngle); // Range: -1 to +1
-  float epochCosWave = cos(epochAngle); // Range: -1 to +1
+  epochSineWave = sin(epochAngle); // Range: -1 to +1
+  epochCosWave = cos(epochAngle); // Range: -1 to +1
   float radius = radiusMedian * map(epochSineWave, -1, 1, 1-radiusFactor, 1+radiusFactor); //radius is scaled by epoch
     
   // 'Driver' variables modulated over a succession of generations (ie. during an epoch):
@@ -232,8 +252,11 @@ void draw() {
       //radius = radiusMedian * map(distToCenter, 0, width*0.7, 0.5, 1.0); // In this case, radius is influenced by the distToCenter value
       
       // 4) The x-y co-ordinates (in canvas space) of the circular path can now be calculated:
-      float px = width*0.5 + radius * cosWave;   // px is in 'canvas space'
-      float py = height*0.5 + radius * sineWave; // py is in 'canvas space'
+      //float px = width*0.5 + radius * cosWave;   // px is in 'canvas space'
+      //float py = height*0.5 + radius * sineWave; // py is in 'canvas space'
+      float px = width*0.5 + radius * epochCosWave;   // px is in 'canvas space'
+      float py = height*0.5 + radius * epochSineWave; // py is in 'canvas space'
+      float pz = map(generation, 1, generations, 0, width); //pz is in 'canvas space'
       
       //noise1Scale = map(distToCenter, 0, width*0.7, 0.0005, 0.05); // If Scale factor is to be influenced by dist2C: 
       
@@ -272,13 +295,14 @@ void draw() {
       
       //noise1, 2 & 3 are basically 3 identical 'grid systems' offset at 3 arbitrary locations in the 3D noisespace.
       
-      seed1 = map(epochCosWave, -1, 1, 0, 1);
-      seed2 = map(epochCosWave, -1, 1, 0, 2);
-      seed3 = map(epochCosWave, -1, 1, 0, 3);
+      seed1 = map(epochCosWave, -1, 1, 0, 100);
+      seed2 = map(epochCosWave, -1, 1, 0, 200);
+      seed3 = map(epochCosWave, -1, 1, 0, 300);
+      //println("Epoch " + epoch + " of " + epochs + " epochAngle=" + epochAngle + " epochCosWave=" + epochCosWave + " seed1=" + seed1 + " seed2=" + seed2 + " seed3=" + seed3);
       
-      float noise1 = noise(noise1Scale*(gridx + px + seed1), noise1Scale*(gridy + py + seed1), noise1Scale*(px + seed1));
-      float noise2 = noise(noise2Scale*(gridx + px + seed2), noise2Scale*(gridy + py + seed2), noise2Scale*(px + seed2));
-      float noise3 = noise(noise3Scale*(gridx + px + seed3), noise3Scale*(gridy + py + seed3), noise3Scale*(px + seed3));
+      float noise1 = noise(noise1Scale*(gridx + px + seed1), noise1Scale*(gridy + py + seed1), noise1Scale*(pz + seed1));
+      float noise2 = noise(noise2Scale*(gridx + px + seed2), noise2Scale*(gridy + py + seed2), noise2Scale*(pz + seed2));
+      float noise3 = noise(noise3Scale*(gridx + px + seed3), noise3Scale*(gridy + py + seed3), noise3Scale*(pz + seed3));
       
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
@@ -292,28 +316,29 @@ void draw() {
       float fill_Bri = map(generation, 1, generations, 255, 255);
       //bkg_Bri = map(generation, 0, generations, 255, 128);
       //bkg_Sat = map(generation, 0, generations, 160, 255);
+      float fill_Trans = map(generation, 1, generations, 8, 48);
       
       //draw the thing
       pushMatrix();
       translate(gridx, gridy); // Go to the grid location
       rotate(map(noise1,0,1,0,TWO_PI)); // Rotate to the current angle
       
-      //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
+      //fill(fill_Hue, fill_Sat, fill_Bri, fill_Trans); // Set the fill color
       //fill(fill_Hue, 0, fill_Bri); // Set the fill color B+W
       //fill(fill_Hue, fill_Sat, fill_Bri); // Set the fill color
-      stroke(fill_Hue, fill_Sat, fill_Bri, 8); // Set the stroke color
+      //stroke(fill_Hue, fill_Sat, fill_Bri, fill_Trans); // Set the stroke color
       //fill(fill_Bri);
-      noFill();
+      //noFill();
       
-      //stroke(0,64);
+      //stroke(360,16);
       //stroke(255,32);
       
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
       
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
-      //if (stripeStep >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
+      if (stripeCounter >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
+      //if (stripeCounter >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
+      //if (stripeCounter >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
+      //if (stripeCounter >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
       
       // These shapes require that ry is a value in a similar range to rx
       //ellipse(0,0,rx,ry); // Draw an ellipse
@@ -343,6 +368,7 @@ void draw() {
   if (makeGenerationMPEG) {videoExport.saveFrame();}
   
   generation++; // A generation has ended, Increase the generation counter by +1 (for each iteration of draw() - a frame)
+  stripeCounter--;
 
   // Old function - to animate every frame in the drawCycle:
   //bkg_Hue = map(sineWave, -1, 1, 240, 200);
