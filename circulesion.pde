@@ -9,11 +9,6 @@
 // TO DO: Make a variable for selecting render type (primitive: rect, ellipse or triangle) (2018-01-16)
 // TO DO: Instead of 2D noisefield use an image and pick out the colour values from the pxels!!! Vary radius of circular path for each cycle :D
 // TO DO: Consider moving epoch-modulated values so they are only recalculated when epoch nr. changes (behind (if generation>generations){})
-// TO DO: Stripes
-//      1) Repair by introducing a basic 'stripe countdown'
-//      2) Find a smart way of modulating the stripe width throughout the epoch
-//          StripeWidth is the maximum width
-//          StripeCounter is the countdown (framecounter reset to StripeWidth for each stripe-cycle)
 
 // TO DO: Make a list of rendering methdods (gradients, stripes, transparent strokes etc.)
 //      1) Brightness from dark to light
@@ -56,14 +51,14 @@ int videoFPS = 30;     // Framerate for video playback
 
 // Loop Control variables
 int generation = 1;    // Generation counter starts at 1
-int generations = 750; // Total number of drawcycles (frames) in a generation (timelapse loop)
+int generations = 2000; // Total number of drawcycles (frames) in a generation (timelapse loop)
 float epoch = 1;         // Epoch counter starts at 1
-float epochs = 300;      // The number of epoch frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
+float epochs = 1;      // The number of epoch frames in the video (Divide by 60 for duration (sec) @60fps, or 30 @30fps)
 
 // Noise variables:
 float noise1Scale, noise2Scale, noise3Scale, noiseFactor;
 float noiseFactorMin = 2.5; 
-float noiseFactorMax = 5;
+float noiseFactorMax = 4;
 float noise1Factor = 5;
 float noise2Factor = 5;
 float noise3Factor = 5;
@@ -80,8 +75,8 @@ float seed3 =0;
 int noiseSeed = 0;
 
 int noiseOctaves; // Integer in the range 3-8? Default: 7
-int noiseOctavesMin = 4;
-int noiseOctavesMax = 4;
+int noiseOctavesMin = 7;
+int noiseOctavesMax = 7;
 float noiseFalloff; // Float in the range 0.0 - 1.0 Default: 0.5 NOTE: Values >0.5 may give noise() value >1.0
 float noiseFalloffMin = 0.5;
 float noiseFalloffMax = 0.5;
@@ -93,9 +88,14 @@ float epochCosWave, epochSineWave;
 int columns = 3;
 int rows, h, w;
 float colOffset, rowOffset, hwRatio;
-float ellipseMaxSize = 6.0;
-float stripeWidthFactor = 0.1;
-//int stripeWidth = int(generations * stripeWidthFactor); // Number of frames for a 'stripe pair' of colour 1 & colour 2
+
+// Size variables
+float ellipseMaxSize = 2.5;
+
+// Stripe variables
+float stripeWidthFactorMin = 0.01;
+float stripeWidthFactorMax = 0.1;
+//int stripeWidth = int(generations * stripeWidthFactor); // stripeWidth is a % of # generations in an epoch
 int stripeWidth = 20;
 int stripeCounter = 0;
 
@@ -109,7 +109,7 @@ boolean makeGenerationPNG = false;  // Use with care! Will save one image per dr
 boolean makePDF = false;            // Enable .pdf 'timelapse' output of all the generations in a single epoch
 boolean makeEpochPNG = true;       // Enable .png 'timelapse' output of all the generations in a single epoch
 boolean makeGenerationMPEG = false; // Enable video output for animation of a single generation cycle (one frame per draw cycle, one video per generations sequence)
-boolean makeEpochMPEG = true;       // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
+boolean makeEpochMPEG = false;       // Enable video output for animation of a series of generation cycles (one frame per generations cycle, one video per epoch sequence)
 boolean debugMode = false;          // Enable logging to debug file
 
 PrintWriter logFile;   // Object for writing to the settings logfile
@@ -119,15 +119,15 @@ void setup() {
   //fullScreen();
   //size(10000, 10000);
   //size(6000, 6000);
-  //size(4000, 4000);
+  size(4000, 4000);
   //size(2000, 2000);
-  size(1024, 1024);
+  //size(1024, 1024);
   //size(1000, 1000);
   //size(800, 800);
   //size(400,400);
   colorMode(HSB, 360, 255, 255, 255);
   bkg_Hue = 240;
-  bkg_Sat = 64;
+  bkg_Sat = 255;
   bkg_Bri = 0;
   //background(bkg_Bri);
   background(bkg_Hue, bkg_Sat, bkg_Bri);
@@ -167,7 +167,6 @@ void draw() {
   if (generation == generations) {
     if (debugMode) {debugFile.println("Epoch " + epoch + " has ended.");}
     println("Epoch " + epoch + " has ended.");
-    epoch++; // An epoch has ended, increase the counter
     generation = 1; // Reset the generation counter for the next epoch
     stripeCounter = stripeWidth; // Reset the stripeCounter for the next epoch 
     if (makeEpochMPEG) {
@@ -175,12 +174,13 @@ void draw() {
         background(bkg_Hue, bkg_Sat, bkg_Bri); //Refresh the background
         //background(bkg_Bri);
       }
-    if (epoch >= epochs) {
+    if (epoch == epochs) {
       // The sketch has reached the end of it's intended lifecycle
       // Time to close up shop...
       println("The last epoch has ended. Goodbye!");
       shutdown();
     }
+    epoch++; // An epoch has ended, increase the counter
   }
   
   if (debugMode) {
@@ -190,9 +190,9 @@ void draw() {
   
   if (stripeCounter <= 0) {
     // The stripe has been completed so reset the counter & start the next one
+    stripeWidth = int(map(generation, 1, generations, generations*stripeWidthFactorMax, generations*stripeWidthFactorMin));
     stripeCounter = stripeWidth;
-  
-  
+
   }
   
   // 'Driver' variables modulated over a succession of epochs:
@@ -214,7 +214,6 @@ void draw() {
   //float remainingSteps = generations - generation; //For stripes that are a % of remainingSteps in the loop
   //stripeWidth = (remainingSteps * 0.3) + 10;
   //stripeWidth = map(generation, 1, generations, generations*0.25, generations*0.1);
-  //float stripeStep = generation%stripeWidth; //step counter (not sure how robust this method is when stripeWidth is modulated)
     
   noiseOctaves = int(map(epochCosWave, -1, 1, noiseOctavesMin, noiseOctavesMax));
   noiseFalloff = map(epochCosWave, -1, 1, noiseFalloffMin, noiseFalloffMax);
@@ -306,14 +305,14 @@ void draw() {
       
       float rx = map(noise2,0,1,0,colOffset*ellipseSize);
       //float ry = map(noise3,0,1,0,rowOffset*ellipseSize);
-      float ry = map(noise3,0,1,0.5,1.0);
+      float ry = map(noise3,0,1,0.1,1.0); // Min value was 0.5
       //float fill_Hue = map(noise1, 0, 1, 0, 20);
       float fill_Hue = map(generation, 1, generations, 240, 240);
       //float fill_Sat = map(noise3, 0, 1, 128,255);
       //float fill_Sat = 0;
-      float fill_Sat = map(generation, 1, generations, 255, 0);
+      float fill_Sat = map(generation, 1, generations, 255, 128);
       //float fill_Bri = map(noise2, 0, 1, 128,255);
-      float fill_Bri = map(generation, 1, generations, 255, 255);
+      float fill_Bri = map(generation, 1, generations, 0, 255);
       //bkg_Bri = map(generation, 0, generations, 255, 128);
       //bkg_Sat = map(generation, 0, generations, 160, 255);
       float fill_Trans = map(generation, 1, generations, 8, 48);
@@ -330,13 +329,14 @@ void draw() {
       //fill(fill_Bri);
       //noFill();
       
-      //stroke(360,16);
+      //stroke(360,fill_Trans);
       //stroke(255,32);
       
       //if (noise1 >= 0.5) {fill(360);} else {fill(0);}
       
-      if (stripeCounter >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);}
-      //if (stripeCounter >= stripeWidth * stripeFactor) {fill(fill_Bri);} else {fill(0);}
+      //if (stripeCounter >= stripeWidth * stripeFactor) {fill(360);} else {fill(0);} // Monochrome
+      //if (stripeCounter >= stripeWidth * stripeFactor) {fill(360);} else {fill(240, 255, 255);}
+      if (stripeCounter >= stripeWidth * stripeFactor) {fill(0,0,fill_Bri);} else {fill(0);}
       //if (stripeCounter >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(fill_Hue,255,255);}
       //if (stripeCounter >= stripeWidth * stripeFactor) {fill(240,fill_Sat,fill_Bri);} else {fill(bkg_Hue, bkg_Sat, bkg_Bri);}
       
@@ -479,7 +479,8 @@ void logSettings() {
   logFile.println("noise3Factor = " + noise3Factor);
   logFile.println("radiusMedianFactor = " + radiusMedianFactor);
   logFile.println("radiusMedian = " + radiusMedian);
-  logFile.println("stripeWidthFactor = " + stripeWidthFactor);
+  logFile.println("stripeWidthFactorMin = " + stripeWidthFactorMin);
+  logFile.println("stripeWidthFactorMax = " + stripeWidthFactorMax);
   logFile.println("stripeWidth = " + stripeWidth);
   logFile.println("radiusFactor = " + radiusFactor);
   logEnd();
